@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Brick Builder Blaster</title>
+    <meta
+      name="description"
+      content="Build a LEGO-like level, then run and blast through it. Share the link with a friend."
+    />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect fill='%23e10600' x='4' y='8' width='24' height='18' rx='3'/%3E%3Ccircle fill='%23ff5a4f' cx='12' cy='14' r='3'/%3E%3Ccircle fill='%23ff5a4f' cx='20' cy='14' r='3'/%3E%3C/svg%3E" />
+  </head>
+  <body data-mode="build">
+    <div id="app">
+      <header>
+        <div class="brand">
+          <div class="logo" aria-hidden="true"></div>
+          <div>
+            <h1>Brick Builder Blaster</h1>
+            <p class="tag">Build a level, then blast through it.</p>
+          </div>
+          <p id="mode-pill" class="pill">Building</p>
+        </div>
+        <p id="banner" class="banner hidden">Shared level loaded</p>
+        <div id="hud" class="hud play-only" aria-live="polite">
+          <div id="hearts" class="hearts" aria-label="Hearts"></div>
+          <p id="hud-coins">Coins 0</p>
+          <p id="hud-enemies">Smashed 0</p>
+          <p id="hud-time">0:00.0</p>
+        </div>
+      </header>
+      <div id="layout">
+        <aside id="toolbar">
+          <div class="build-only tool-scroll">
+            <h2>Tools</h2>
+            <button type="button" class="tool is-selected" data-tool="B" id="tool-brick" aria-pressed="true">
+              <span class="swatch swatch-brick" aria-hidden="true"></span>
+              <span>Brick wall</span>
+              <kbd>1</kbd>
+            </button>
+            <button type="button" class="tool" data-tool="W" id="tool-solid" aria-pressed="false">
+              <span class="swatch swatch-solid" aria-hidden="true"></span>
+              <span>Solid wall</span>
+              <kbd>2</kbd>
+            </button>
+            <button type="button" class="tool" data-tool="E" id="tool-enemy" aria-pressed="false">
+              <span class="swatch swatch-enemy" aria-hidden="true"></span>
+              <span>Enemy</span>
+              <kbd>3</kbd>
+            </button>
+            <button type="button" class="tool" data-tool="C" id="tool-coin" aria-pressed="false">
+              <span class="swatch swatch-coin" aria-hidden="true"></span>
+              <span>Coin</span>
+              <kbd>4</kbd>
+            </button>
+            <button type="button" class="tool" data-tool="S" id="tool-start" aria-pressed="false">
+              <span class="swatch swatch-start" aria-hidden="true"></span>
+              <span>Start</span>
+              <kbd>5</kbd>
+            </button>
+            <button type="button" class="tool" data-tool="F" id="tool-finish" aria-pressed="false">
+              <span class="swatch swatch-finish" aria-hidden="true"></span>
+              <span>Finish</span>
+              <kbd>6</kbd>
+            </button>
+            <button type="button" class="tool" data-tool="erase" id="tool-erase" aria-pressed="false">
+              <span class="swatch swatch-erase" aria-hidden="true"></span>
+              <span>Eraser</span>
+              <kbd>7</kbd>
+            </button>
+            <div id="stats" class="stats">
+              <p id="stat-line">Empty board</p>
+            </div>
+            <p id="ready-note">Add one Start and one Finish.</p>
+            <p class="tip">Left click places. Right click erases. Drag to paint walls.</p>
+          </div>
+          <div class="build-only actions">
+            <button type="button" id="btn-play" class="btn btn-go">Play Test</button>
+            <div class="action-row">
+              <button type="button" id="btn-clear" class="btn">Clear</button>
+              <button type="button" id="btn-save" class="btn">Save</button>
+              <button type="button" id="btn-share" class="btn">Share Link</button>
+            </div>
+          </div>
+          <div class="play-only play-help">
+            <h2>How to play</h2>
+            <ul>
+              <li><b>Move</b> with WASD or the arrow keys.</li>
+              <li><b>Shoot</b> by holding the mouse toward a target.</li>
+            </ul>
+            <p>Red walls break after 3 hits. Blue walls never break. Monsters pop after 2 hits.</p>
+            <p>Touching a monster costs one heart. At 0 hearts you pop back to Start.</p>
+            <p>Reach the checkered Finish to clear the level.</p>
+            <button type="button" id="btn-back" class="btn btn-go">Back to build</button>
+          </div>
+        </aside>
+        <main id="stage">
+          <div id="board-frame">
+            <div id="game"></div>
+            <div id="results" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="results-title">
+              <div class="card">
+                <p class="eyebrow">Level clear</p>
+                <h2 id="results-title">You did it!</h2>
+                <p id="results-time" class="results-time">0:00.0</p>
+                <ul class="results-list">
+                  <li id="results-coins">Coins collected: 0</li>
+                  <li id="results-enemies">Monsters smashed: 0</li>
+                </ul>
+                <div class="action-row">
+                  <button type="button" id="btn-again" class="btn btn-go">Play again</button>
+                  <button type="button" id="btn-results-back" class="btn">Back to build</button>
+                </div>
+              </div>
+            </div>
+            <div id="share" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="share-title">
+              <div class="card">
+                <h2 id="share-title">Share this level</h2>
+                <p>Send this link to a friend. Opening it loads the same level.</p>
+                <input id="share-url" readonly aria-label="Share link" />
+                <div class="action-row">
+                  <button type="button" id="btn-copy" class="btn btn-go">Copy link</button>
+                  <button type="button" id="btn-share-close" class="btn">Close</button>
+                </div>
+              </div>
+            </div>
+            <div id="confirm" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
+              <div class="card">
+                <h2 id="confirm-title">Clear the whole level?</h2>
+                <p>This erases every brick, monster, and coin.</p>
+                <div class="action-row">
+                  <button type="button" id="confirm-yes" class="btn btn-danger">Clear it</button>
+                  <button type="button" id="confirm-no" class="btn">Keep building</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </main>
+      </div>
+    </div>
+    <div id="toast" role="status"></div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
