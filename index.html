@@ -75,6 +75,7 @@
             <p class="tip">Left click places. Right click erases. Drag to paint walls.</p>
           </div>
           <div class="build-only actions">
+            <button type="button" id="btn-jasper" class="btn btn-jasper">Jasper's Level 1</button>
             <button type="button" id="btn-play" class="btn btn-go">Play Test</button>
             <div class="action-row">
               <button type="button" id="btn-clear" class="btn">Clear</button>
@@ -88,9 +89,9 @@
               <li><b>Move</b> with WASD or the arrow keys.</li>
               <li><b>Shoot</b> by holding the mouse toward a target.</li>
             </ul>
-            <p>Red walls break after 3 hits. Blue walls never break. Monsters pop after 2 hits.</p>
-            <p>Touching a monster costs one heart. At 0 hearts you pop back to Start.</p>
-            <p>Reach the checkered Finish to clear the level.</p>
+            <p>Red walls break after 3 hits. Blue walls never break. The mad circle pops after 2 hits.</p>
+            <p>It starts slow and gets faster. Touching it costs one heart. At 0 hearts you pop back to Start.</p>
+            <p>Reach the blue flag to clear the level.</p>
             <button type="button" id="btn-back" class="btn btn-go">Back to build</button>
           </div>
         </aside>
@@ -126,7 +127,7 @@
             <div id="confirm" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
               <div class="card">
                 <h2 id="confirm-title">Clear the whole level?</h2>
-                <p>This erases every brick, monster, and coin.</p>
+                <p id="confirm-body">This erases every brick, monster, and coin.</p>
                 <div class="action-row">
                   <button type="button" id="confirm-yes" class="btn btn-danger">Clear it</button>
                   <button type="button" id="confirm-no" class="btn">Keep building</button>

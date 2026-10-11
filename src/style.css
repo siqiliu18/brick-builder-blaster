@@ -196,7 +196,7 @@ h2 { margin: 0 0 4px; font-size: 16px; }
 
 .swatch-brick { background: #e10600; }
 .swatch-solid { background: #1565c0; }
-.swatch-enemy { background: #2e7d32; border-radius: 8px; }
+.swatch-enemy { background: #ff6d00; border-radius: 50%; }
 .swatch-coin {
   width: 18px;
   height: 18px;
@@ -206,11 +206,7 @@ h2 { margin: 0 0 4px; font-size: 16px; }
   box-shadow: none;
 }
 .swatch-start { background: #43a047; border-radius: 50%; }
-.swatch-finish {
-  background: repeating-conic-gradient(#f5f5f5 0% 25%, #212121 0% 50%);
-  background-size: 10px 10px;
-  box-shadow: inset 0 0 0 2px #fbc02d;
-}
+.swatch-finish { background: #1e88e5; border-radius: 2px 12px 2px 2px; }
 .swatch-erase { background: #607d8b; }
 
 .stats, .tip, .ready-note, #ready-note {
@@ -236,6 +232,14 @@ h2 { margin: 0 0 4px; font-size: 16px; }
 }
 
 .btn:active { transform: translateY(2px); box-shadow: 0 2px 0 #081018; }
+
+.btn-jasper {
+  background: #ffe14a;
+  color: #1a1204;
+  border-color: #c9a227;
+  box-shadow: 0 4px 0 #c9a227;
+  font-size: 16px;
+}
 
 .btn-go {
   background: var(--green);

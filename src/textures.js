@@ -1,5 +1,23 @@
 import { COLS, ROWS } from './level.js';
 
+/**
+ * Recolor the hero here. The whole figure is gray for now.
+ * Set `hat` to a color such as '#e10600' later if Jasper wants a helmet.
+ */
+export const PLAYER_COLORS = {
+  head: '#d0d0d0',
+  headShade: '#9e9e9e',
+  torso: '#8a8a8a',
+  torsoShade: '#5e5e5e',
+  arms: '#757575',
+  legs: '#454545',
+  stud: '#f2f2f2',
+  eye: '#222222',
+  blaster: '#3c3c3c',
+  blasterTip: '#c8c8c8',
+  hat: null,
+};
+
 const TEX = 80;
 
 function roundRect(ctx, x, y, w, h, r) {
@@ -98,90 +116,101 @@ function drawBoard(ctx) {
 }
 
 function drawPlayer(ctx) {
-  ctx.fillStyle = '#c62828';
-  roundRect(ctx, 20, 46, 12, 18, 3);
+  const colors = PLAYER_COLORS;
+  ctx.fillStyle = colors.legs;
+  roundRect(ctx, 26, 54, 12, 16, 3);
   ctx.fill();
-  roundRect(ctx, 36, 46, 12, 18, 3);
+  roundRect(ctx, 42, 54, 12, 16, 3);
   ctx.fill();
-  ctx.fillStyle = '#1565c0';
-  roundRect(ctx, 16, 30, 36, 20, 5);
+  ctx.fillStyle = colors.torsoShade;
+  roundRect(ctx, 20, 36, 40, 24, 5);
   ctx.fill();
-  ctx.fillStyle = '#0d47a1';
-  roundRect(ctx, 16, 44, 36, 6, 2);
+  ctx.fillStyle = colors.torso;
+  roundRect(ctx, 20, 32, 40, 24, 5);
   ctx.fill();
-  stud(ctx, 34, 40, 4, '#64b5f6', '#0d47a1');
-  ctx.fillStyle = '#ffca28';
-  roundRect(ctx, 48, 32, 10, 10, 3);
+  stud(ctx, 32, 44, 4, colors.stud, colors.torsoShade);
+  stud(ctx, 48, 44, 4, colors.stud, colors.torsoShade);
+  ctx.fillStyle = colors.arms;
+  roundRect(ctx, 6, 34, 14, 14, 3);
   ctx.fill();
-  ctx.fillStyle = '#ffca28';
+  roundRect(ctx, 60, 34, 14, 14, 3);
+  ctx.fill();
+  ctx.fillStyle = colors.headShade;
   ctx.beginPath();
-  ctx.arc(34, 20, 14, 0, Math.PI * 2);
+  ctx.arc(40, 28, 16, 0, Math.PI * 2);
   ctx.fill();
-  ctx.strokeStyle = '#f9a825';
-  ctx.lineWidth = 2;
-  ctx.stroke();
-  ctx.fillStyle = '#1a1a1a';
+  ctx.fillStyle = colors.head;
   ctx.beginPath();
-  ctx.arc(39, 18, 2.3, 0, Math.PI * 2);
-  ctx.arc(30, 18, 2.3, 0, Math.PI * 2);
+  ctx.arc(40, 26, 16, 0, Math.PI * 2);
   ctx.fill();
-  ctx.strokeStyle = '#1a1a1a';
-  ctx.lineWidth = 2;
+  if (colors.hat) {
+    ctx.fillStyle = colors.hat;
+    ctx.beginPath();
+    ctx.arc(40, 22, 16, Math.PI, 0);
+    ctx.fill();
+  }
+  stud(ctx, 40, 20, 5, colors.stud, colors.headShade);
+  ctx.fillStyle = colors.eye;
   ctx.beginPath();
-  ctx.arc(35, 22, 6, 0.15, Math.PI - 0.15);
-  ctx.stroke();
+  ctx.arc(34, 30, 2, 0, Math.PI * 2);
+  ctx.arc(46, 30, 2, 0, Math.PI * 2);
+  ctx.fill();
 }
 
 function drawEnemy(ctx, hurt) {
-  ctx.fillStyle = '#1b5e20';
-  roundRect(ctx, 14, 54, 16, 12, 3);
-  ctx.fill();
-  roundRect(ctx, 42, 54, 16, 12, 3);
-  ctx.fill();
-  ctx.fillStyle = hurt ? '#1b5e20' : '#2e7d32';
-  roundRect(ctx, 10, 24, 52, 36, 8);
-  ctx.fill();
-  ctx.fillStyle = '#43a047';
-  roundRect(ctx, 14, 28, 44, 14, 6);
-  ctx.fill();
-  stud(ctx, 24, 22, 7, '#66bb6a', '#1b5e20');
-  stud(ctx, 48, 22, 7, '#66bb6a', '#1b5e20');
-  ctx.fillStyle = '#ffffff';
+  ctx.fillStyle = '#bf360c';
   ctx.beginPath();
-  ctx.arc(28, 40, 7, 0, Math.PI * 2);
-  ctx.arc(46, 40, 7, 0, Math.PI * 2);
+  ctx.arc(40, 42, 32, 0, Math.PI * 2);
   ctx.fill();
-  ctx.fillStyle = '#d50000';
+  ctx.fillStyle = hurt ? '#e65100' : '#ff6d00';
   ctx.beginPath();
+  ctx.arc(40, 38, 32, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = '#4e1400';
+  ctx.lineWidth = 4;
+  ctx.stroke();
+  ctx.fillStyle = '#fff';
+  ctx.beginPath();
+  ctx.ellipse(28, 36, 7, 8, 0, 0, Math.PI * 2);
+  ctx.ellipse(52, 36, 7, 8, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#1a1a1a';
   if (hurt) {
-    ctx.arc(30, 41, 3, 0, Math.PI * 2);
-    ctx.arc(44, 41, 3, 0, Math.PI * 2);
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = '#1a1a1a';
+    ctx.beginPath();
+    ctx.moveTo(23, 32);
+    ctx.lineTo(33, 40);
+    ctx.moveTo(33, 32);
+    ctx.lineTo(23, 40);
+    ctx.moveTo(47, 32);
+    ctx.lineTo(57, 40);
+    ctx.moveTo(57, 32);
+    ctx.lineTo(47, 40);
+    ctx.stroke();
   } else {
-    ctx.arc(30, 40, 3.2, 0, Math.PI * 2);
-    ctx.arc(48, 40, 3.2, 0, Math.PI * 2);
+    ctx.beginPath();
+    ctx.arc(30, 38, 3, 0, Math.PI * 2);
+    ctx.arc(50, 38, 3, 0, Math.PI * 2);
+    ctx.fill();
   }
-  ctx.fill();
-  ctx.strokeStyle = '#1b5e20';
-  ctx.lineWidth = 3;
+  ctx.strokeStyle = '#3e1200';
+  ctx.lineWidth = 4;
   ctx.lineCap = 'round';
   ctx.beginPath();
-  if (hurt) {
-    ctx.moveTo(22, 30);
-    ctx.lineTo(34, 34);
-    ctx.moveTo(50, 30);
-    ctx.lineTo(38, 34);
-  } else {
-    ctx.moveTo(22, 32);
-    ctx.lineTo(34, 28);
-    ctx.moveTo(50, 32);
-    ctx.lineTo(38, 28);
-  }
+  ctx.moveTo(18, 24);
+  ctx.lineTo(30, 30);
+  ctx.moveTo(62, 24);
+  ctx.lineTo(50, 30);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(28, 52);
+  ctx.quadraticCurveTo(40, 44, 52, 52);
   ctx.stroke();
   if (hurt) {
-    ctx.strokeStyle = 'rgba(0,0,0,0.7)';
     ctx.beginPath();
-    ctx.moveTo(18, 30);
-    ctx.lineTo(34, 48);
+    ctx.moveTo(18, 18);
+    ctx.lineTo(36, 40);
     ctx.lineTo(28, 58);
     ctx.stroke();
   }
@@ -213,49 +242,39 @@ function drawCoin(ctx) {
   ctx.fill();
 }
 
-function drawStart(ctx) {
-  ctx.fillStyle = '#2e7d32';
-  roundRect(ctx, 6, 10, 68, 64, 10);
+function drawFlag(ctx, cloth, clothDark) {
+  ctx.fillStyle = '#5d4037';
+  roundRect(ctx, 18, 8, 8, 66, 2);
   ctx.fill();
-  ctx.fillStyle = '#66bb6a';
+  ctx.fillStyle = clothDark;
   ctx.beginPath();
-  ctx.arc(40, 38, 22, 0, Math.PI * 2);
+  ctx.moveTo(26, 16);
+  ctx.lineTo(70, 28);
+  ctx.lineTo(26, 46);
+  ctx.closePath();
   ctx.fill();
-  ctx.fillStyle = '#ffffff';
+  ctx.fillStyle = cloth;
   ctx.beginPath();
-  ctx.moveTo(32, 24);
-  ctx.lineTo(54, 38);
-  ctx.lineTo(32, 52);
+  ctx.moveTo(26, 12);
+  ctx.lineTo(66, 22);
+  ctx.lineTo(26, 38);
   ctx.closePath();
   ctx.fill();
 }
 
+function drawStart(ctx) {
+  drawFlag(ctx, '#43a047', '#1b5e20');
+}
+
 function drawFinish(ctx) {
-  const cell = 10;
-  for (let y = 0; y < 8; y++) {
-    for (let x = 0; x < 8; x++) {
-      ctx.fillStyle = (x + y) % 2 === 0 ? '#f5f5f5' : '#212121';
-      ctx.fillRect(x * cell, y * cell, cell, cell);
-    }
-  }
-  ctx.strokeStyle = '#fbc02d';
-  ctx.lineWidth = 6;
-  ctx.strokeRect(3, 3, 74, 74);
-  ctx.fillStyle = '#fbc02d';
-  ctx.font = 'bold 22px Verdana, sans-serif';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText('END', 40, 42);
-  ctx.lineWidth = 2;
-  ctx.strokeStyle = '#212121';
-  ctx.strokeText('END', 40, 42);
+  drawFlag(ctx, '#1e88e5', '#0d47a1');
 }
 
 function drawBlaster(ctx, w, h) {
-  ctx.fillStyle = '#424242';
+  ctx.fillStyle = PLAYER_COLORS.blaster;
   roundRect(ctx, 0, 6, w - 4, h - 12, 3);
   ctx.fill();
-  ctx.fillStyle = '#ffca28';
+  ctx.fillStyle = PLAYER_COLORS.blasterTip;
   roundRect(ctx, w - 12, 8, 10, h - 16, 2);
   ctx.fill();
 }

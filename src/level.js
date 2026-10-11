@@ -16,6 +16,39 @@ export function blankRows() {
   return Array.from({ length: ROWS }, () => '.'.repeat(COLS));
 }
 
+function setChar(row, x, ch) {
+  return row.slice(0, x) + ch + row.slice(x + 1);
+}
+
+/** Jasper's first layout. Editable like any other level once it is loaded. */
+export function jaspersLevel() {
+  const rows = blankRows();
+  const set = (x, y, ch) => {
+    rows[y] = setChar(rows[y], x, ch);
+  };
+  for (let y = 0; y < ROWS; y++) {
+    for (let x = 0; x < COLS; x++) {
+      if (x === 0 || y === 0 || x === COLS - 1 || y === ROWS - 1) set(x, y, 'W');
+    }
+  }
+  for (let y = 2; y <= 9; y++) if (y !== 5 && y !== 6) set(8, y, 'B');
+  for (let x = 2; x <= 15; x++) if (x !== 11 && x !== 12) set(x, 10, 'B');
+  set(14, 4, 'B');
+  set(15, 4, 'B');
+  set(16, 4, 'B');
+  set(2, 2, 'S');
+  set(17, 12, 'F');
+  for (const [x, y] of [
+    [5, 2],
+    [3, 8],
+    [12, 4],
+    [11, 8],
+    [15, 12],
+  ]) set(x, y, 'C');
+  set(12, 8, 'E');
+  return rows;
+}
+
 export function validateRows(value) {
   if (!Array.isArray(value) || value.length !== ROWS) return false;
   for (const row of value) {
@@ -25,10 +58,6 @@ export function validateRows(value) {
     }
   }
   return true;
-}
-
-function setChar(row, x, ch) {
-  return row.slice(0, x) + ch + row.slice(x + 1);
 }
 
 export function placeOn(rowsIn, tx, ty, ch) {
@@ -216,7 +245,10 @@ export function loadMessage() {
     return { toast: 'That share link did not work. Your saved level was opened instead.' };
   }
   if (source === 'bad-link') {
-    return { toast: 'That share link did not work. Starting a new level.' };
+    return { toast: "That share link did not work. Jasper's Level 1 was opened instead." };
+  }
+  if (source === 'jasper') {
+    return { toast: "Jasper's Level 1 is ready. Change it if you want, then play test." };
   }
   return {};
 }
@@ -246,7 +278,9 @@ export async function initLevel() {
     if (source !== 'bad-link') source = 'saved';
     return;
   }
-  rows = blankRows();
+  rows = jaspersLevel();
+  if (source !== 'bad-link') source = 'jasper';
+  persist();
 }
 
 export function shareUrl(code) {

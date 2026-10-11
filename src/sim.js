@@ -3,7 +3,13 @@ import { COLS, ROWS, TILE } from './level.js';
 export const PLAYER_HALF = 12;
 export const ENEMY_HALF = 12;
 export const PLAYER_SPEED = 210;
-export const ENEMY_SPEED = 72;
+export const MAD_MIN_SPEED = 40;
+export const MAD_MAX_SPEED = 150;
+export const MAD_ACCEL = 8;
+
+export function madSpeed(elapsed) {
+  return Math.min(MAD_MAX_SPEED, MAD_MIN_SPEED + Math.max(0, elapsed) * MAD_ACCEL);
+}
 
 export function isBlocked(grid, x, y, half) {
   const x0 = Math.floor((x - half) / TILE);

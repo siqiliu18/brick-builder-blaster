@@ -8,7 +8,9 @@ import {
   encodeLevel,
   getRows,
   initLevel,
+  jaspersLevel,
   loadMessage,
+  replaceLevel,
   saveNow,
   shareUrl,
   subscribe,
@@ -136,12 +138,42 @@ async function boot() {
   document.getElementById('btn-again').addEventListener('click', () => scene()?.enterPlay());
   document.getElementById('btn-results-back').addEventListener('click', () => scene()?.backToBuild());
 
-  document.getElementById('btn-clear').addEventListener('click', () => show('confirm'));
-  document.getElementById('confirm-no').addEventListener('click', () => hide('confirm'));
-  document.getElementById('confirm-yes').addEventListener('click', () => {
-    clearLevel();
+  let confirmAction = null;
+  function ask(title, body, yesLabel, action) {
+    document.getElementById('confirm-title').textContent = title;
+    document.getElementById('confirm-body').textContent = body;
+    const yes = document.getElementById('confirm-yes');
+    yes.textContent = yesLabel;
+    yes.classList.toggle('btn-danger', yesLabel === 'Clear it');
+    confirmAction = action;
+    show('confirm');
+  }
+  document.getElementById('btn-clear').addEventListener('click', () => {
+    ask('Clear the whole level?', 'This erases every brick, monster, and coin.', 'Clear it', () => {
+      clearLevel();
+      toast('Level cleared.');
+    });
+  });
+  document.getElementById('btn-jasper').addEventListener('click', () => {
+    ask(
+      "Load Jasper's Level 1?",
+      'This replaces the level you are building. You can still edit it afterward.',
+      'Load it',
+      () => {
+        replaceLevel(jaspersLevel());
+        toast("Jasper's Level 1 loaded. Change anything you like.");
+      },
+    );
+  });
+  document.getElementById('confirm-no').addEventListener('click', () => {
+    confirmAction = null;
     hide('confirm');
-    toast('Level cleared.');
+  });
+  document.getElementById('confirm-yes').addEventListener('click', () => {
+    const action = confirmAction;
+    confirmAction = null;
+    hide('confirm');
+    action?.();
   });
 
   document.getElementById('btn-save').addEventListener('click', () => {

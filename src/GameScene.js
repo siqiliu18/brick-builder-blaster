@@ -14,7 +14,17 @@ import {
   tileCenter,
 } from './level.js';
 import { isDown } from './input.js';
-import { ENEMY_HALF, PLAYER_HALF, PLAYER_SPEED, chase, moveBody, separateEnemies } from './sim.js';
+import {
+  ENEMY_HALF,
+  MAD_MAX_SPEED,
+  MAD_MIN_SPEED,
+  PLAYER_HALF,
+  PLAYER_SPEED,
+  chase,
+  madSpeed,
+  moveBody,
+  separateEnemies,
+} from './sim.js';
 import { buildTextures } from './textures.js';
 import { clearFx, flashScreen, popText, spawnBurst, updateFx } from './fx.js';
 
@@ -294,9 +304,9 @@ export class GameScene extends Phaser.Scene {
 
   makePlayer(x, y) {
     const container = this.add.container(x, y).setDepth(10 + y);
-    const shadow = this.add.image(0, 10, 'shadow').setDisplaySize(28, 12);
-    const body = this.add.image(0, -10, 'player').setDisplaySize(36, 36);
-    const blaster = this.add.image(12, -4, 'blaster').setDisplaySize(18, 10).setOrigin(0, 0.5);
+    const shadow = this.add.image(0, 16, 'shadow').setDisplaySize(34, 12);
+    const body = this.add.image(0, 0, 'player').setDisplaySize(40, 40);
+    const blaster = this.add.image(18, 0, 'blaster').setDisplaySize(16, 8).setOrigin(0, 0.5);
     container.add([shadow, body, blaster]);
     container.bodySprite = body;
     container.blaster = blaster;
@@ -306,8 +316,8 @@ export class GameScene extends Phaser.Scene {
   makeEnemy(cell) {
     const { x, y } = tileCenter(cell.x, cell.y);
     const container = this.add.container(x, y).setDepth(10 + y);
-    const shadow = this.add.image(0, 12, 'shadow').setDisplaySize(30, 12);
-    const body = this.add.image(0, -8, 'enemy').setDisplaySize(40, 40);
+    const shadow = this.add.image(0, 16, 'shadow').setDisplaySize(32, 12);
+    const body = this.add.image(0, 0, 'enemy').setDisplaySize(38, 38);
     container.add([shadow, body]);
     container.bodySprite = body;
     return {
@@ -316,7 +326,7 @@ export class GameScene extends Phaser.Scene {
       hp: 2,
       alive: true,
       sprite: container,
-      speed: 72 * (0.92 + Math.random() * 0.16),
+      speed: MAD_MIN_SPEED,
     };
   }
 
@@ -385,10 +395,9 @@ export class GameScene extends Phaser.Scene {
     const pointer = this.input.activePointer;
     const angle = Math.atan2(pointer.worldY - this.player.y, pointer.worldX - this.player.x);
     this.player.blaster.rotation = angle;
-    this.player.blaster.setPosition(Math.cos(angle) * 14, -4 + Math.sin(angle) * 14);
-    this.player.bodySprite.setFlipX(Math.cos(angle) < -0.2);
+    this.player.blaster.setPosition(Math.cos(angle) * 18, Math.sin(angle) * 18);
     if (moving) this.bob += dt * 14;
-    this.player.bodySprite.y = -10 + Math.sin(this.bob) * (moving ? 1.7 : 0.35);
+    this.player.bodySprite.y = Math.sin(this.bob) * (moving ? 1.2 : 0.25);
     if (this.invuln > 0) {
       this.invuln -= dt;
       this.player.alpha = Math.sin(time / 40) > 0 ? 1 : 0.35;
@@ -413,8 +422,8 @@ export class GameScene extends Phaser.Scene {
   }
 
   shoot(angle) {
-    const x = this.player.x + Math.cos(angle) * 22;
-    const y = this.player.y + Math.sin(angle) * 22;
+    const x = this.player.x + Math.cos(angle) * 26;
+    const y = this.player.y + Math.sin(angle) * 26;
     const speed = 560;
     const sprite = this.add.image(x, y, 'bullet').setDepth(3200).setRotation(angle);
     this.bullets.push({ x, y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, sprite });
@@ -432,10 +441,13 @@ export class GameScene extends Phaser.Scene {
     if (!this.player) return;
     for (const enemy of this.enemies) {
       if (!enemy.alive) continue;
+      enemy.speed = madSpeed(this.finishElapsed || 0);
       chase(enemy, this.player, dt, ENEMY_HALF, this.grid);
       enemy.sprite.setPosition(enemy.x, enemy.y);
       enemy.sprite.setDepth(10 + enemy.y);
-      enemy.sprite.bodySprite.setFlipX(this.player.x < enemy.x);
+      const rage = (enemy.speed - MAD_MIN_SPEED) / (MAD_MAX_SPEED - MAD_MIN_SPEED);
+      const wobble = Math.sin(this.time.now / (160 - rage * 70)) * (3 + rage * 8);
+      enemy.sprite.bodySprite.setAngle(wobble);
     }
     separateEnemies(this.enemies, ENEMY_HALF, this.grid);
     for (const enemy of this.enemies) {
@@ -560,7 +572,7 @@ export class GameScene extends Phaser.Scene {
       this.freeze = 0.08;
       spawnBurst(this, x, y, {
         count: 10,
-        colors: [0x43a047, 0x2e7d32, 0xc8e6c9, 0xffe14a, 0xff5252, 0xffffff],
+        colors: [0xff6d00, 0xe65100, 0xffd180, 0xffe14a, 0xff5252, 0xffffff],
         power: 320,
         shake: 0.012,
         ring: true,
@@ -638,7 +650,7 @@ export class GameScene extends Phaser.Scene {
     const y = this.player.y;
     spawnBurst(this, x, y, {
       count: 8,
-      colors: [0xffca28, 0x1565c0, 0xe10600, 0xffffff],
+      colors: [0xd0d0d0, 0x8a8a8a, 0x454545, 0xffffff],
       power: 260,
       shake: 0.008,
       ring: true,
