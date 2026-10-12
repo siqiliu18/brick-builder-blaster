@@ -2,7 +2,10 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"
+    />
     <title>Brick Builder Blaster</title>
     <meta
       name="description"
@@ -72,7 +75,7 @@
               <p id="stat-line">Empty board</p>
             </div>
             <p id="ready-note">Add one Start and one Finish.</p>
-            <p class="tip">Left click places. Right click erases. Drag to paint walls.</p>
+            <p class="tip">Tap or left click places. Right click erases. Drag to paint walls.</p>
           </div>
           <div class="build-only actions">
             <button type="button" id="btn-jasper" class="btn btn-jasper">Jasper's Level 1</button>
@@ -86,8 +89,8 @@
           <div class="play-only play-help">
             <h2>How to play</h2>
             <ul>
-              <li><b>Move</b> with WASD or the arrow keys.</li>
-              <li><b>Shoot</b> by holding the mouse toward a target.</li>
+              <li><b>Move</b> with WASD, the arrow keys, or the stick.</li>
+              <li><b>Shoot</b> by holding the mouse or a finger toward a target, or hold Shoot to fire the way you are moving.</li>
             </ul>
             <p>Red walls break after 3 hits. Blue walls never break. The mad circle pops after 2 hits.</p>
             <p>It starts slow and gets faster. Touching it costs one heart. At 0 hearts you pop back to Start.</p>
@@ -98,6 +101,12 @@
         <main id="stage">
           <div id="board-frame">
             <div id="game"></div>
+            <div id="touch-controls" class="play-only">
+              <div id="stick" class="stick" role="application" aria-label="Move">
+                <div id="stick-knob" class="stick-knob"></div>
+              </div>
+              <button type="button" id="btn-shoot" class="shoot-btn" aria-label="Shoot">Shoot</button>
+            </div>
             <div id="results" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="results-title">
               <div class="card">
                 <p class="eyebrow">Level clear</p>

@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import './style.css';
 import { GameScene } from './GameScene.js';
+import { installTouch } from './touch.js';
 import {
   VIEW_H,
   VIEW_W,
@@ -94,6 +95,7 @@ function scene() {
 }
 
 async function boot() {
+  installTouch();
   await initLevel();
 
   const message = loadMessage();

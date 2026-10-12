@@ -13,7 +13,7 @@ import {
   summarize,
   tileCenter,
 } from './level.js';
-import { isDown } from './input.js';
+import { facing, isDown, isFireHeld, setFacing, stickVector } from './input.js';
 import {
   ENEMY_HALF,
   MAD_MAX_SPEED,
@@ -383,7 +383,13 @@ export class GameScene extends Phaser.Scene {
     if (isDown('d', 'arrowright')) ix += 1;
     if (isDown('w', 'arrowup')) iy -= 1;
     if (isDown('s', 'arrowdown')) iy += 1;
-    const moving = ix !== 0 || iy !== 0;
+    const joy = stickVector();
+    if (joy.on && Math.hypot(joy.x, joy.y) > 0.22) {
+      ix += joy.x;
+      iy += joy.y;
+    }
+    const moving = Math.hypot(ix, iy) > 0.05;
+    if (moving) setFacing(Math.atan2(iy, ix));
     const len = Math.hypot(ix, iy) || 1;
     const vx = (moving ? (ix / len) * PLAYER_SPEED : 0) + this.knockX;
     const vy = (moving ? (iy / len) * PLAYER_SPEED : 0) + this.knockY;
@@ -393,7 +399,18 @@ export class GameScene extends Phaser.Scene {
     this.player.setDepth(10 + this.player.y);
 
     const pointer = this.input.activePointer;
-    const angle = Math.atan2(pointer.worldY - this.player.y, pointer.worldX - this.player.x);
+    const inside =
+      pointer.worldX >= 0 &&
+      pointer.worldY >= 0 &&
+      pointer.worldX <= VIEW_W &&
+      pointer.worldY <= VIEW_H;
+    const manual = pointer.leftButtonDown() && inside;
+    const buttonFire = isFireHeld();
+    const angle = manual
+      ? Math.atan2(pointer.worldY - this.player.y, pointer.worldX - this.player.x)
+      : buttonFire
+        ? facing()
+        : Math.atan2(pointer.worldY - this.player.y, pointer.worldX - this.player.x);
     this.player.blaster.rotation = angle;
     this.player.blaster.setPosition(Math.cos(angle) * 18, Math.sin(angle) * 18);
     if (moving) this.bob += dt * 14;
@@ -410,12 +427,7 @@ export class GameScene extends Phaser.Scene {
     this.aim.lineTo(this.player.x + Math.cos(angle) * 42, this.player.y + Math.sin(angle) * 42);
     this.aim.strokePath();
 
-    const inside =
-      pointer.worldX >= 0 &&
-      pointer.worldY >= 0 &&
-      pointer.worldX <= VIEW_W &&
-      pointer.worldY <= VIEW_H;
-    if (pointer.leftButtonDown() && inside && time >= this.nextShot) {
+    if ((manual || buttonFire) && time >= this.nextShot) {
       this.shoot(angle);
       this.nextShot = time + 260;
     }
