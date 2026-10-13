@@ -1,0 +1,19 @@
+{
+  "name": "brick-builder-blaster",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Build a LEGO-like level, then run and blast through it.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "node --test test/level.test.js"
+  },
+  "dependencies": {
+    "phaser": "^3.88.2"
+  },
+  "devDependencies": {
+    "vite": "^6.3.5"
+  }
+}
