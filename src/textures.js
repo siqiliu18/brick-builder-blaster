@@ -216,6 +216,83 @@ function drawEnemy(ctx, hurt) {
   }
 }
 
+function drawBrute(ctx, cracks) {
+  ctx.fillStyle = '#4a148c';
+  ctx.beginPath();
+  ctx.arc(40, 44, 30, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = cracks >= 2 ? '#8e24aa' : '#7b1fa2';
+  ctx.beginPath();
+  ctx.arc(40, 40, 30, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = '#311b92';
+  ctx.lineWidth = 4;
+  ctx.stroke();
+  ctx.fillStyle = '#ede7f6';
+  ctx.beginPath();
+  ctx.moveTo(22, 24);
+  ctx.lineTo(16, 8);
+  ctx.lineTo(32, 20);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(58, 24);
+  ctx.lineTo(64, 8);
+  ctx.lineTo(48, 20);
+  ctx.fill();
+  ctx.fillStyle = '#fff';
+  ctx.beginPath();
+  ctx.ellipse(28, 38, 8, 9, 0, 0, Math.PI * 2);
+  ctx.ellipse(52, 38, 8, 9, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#ffea00';
+  ctx.beginPath();
+  ctx.arc(30, 40, 3.5, 0, Math.PI * 2);
+  ctx.arc(50, 40, 3.5, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#1a1a1a';
+  ctx.beginPath();
+  ctx.arc(31, 41, 2, 0, Math.PI * 2);
+  ctx.arc(51, 41, 2, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = '#311b92';
+  ctx.lineWidth = 4;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(16, 28);
+  ctx.lineTo(36, 34);
+  ctx.moveTo(64, 28);
+  ctx.lineTo(44, 34);
+  ctx.stroke();
+  ctx.fillStyle = '#fff';
+  ctx.beginPath();
+  ctx.moveTo(26, 52);
+  ctx.lineTo(32, 46);
+  ctx.lineTo(38, 54);
+  ctx.lineTo(44, 46);
+  ctx.lineTo(50, 54);
+  ctx.lineTo(56, 46);
+  ctx.lineTo(56, 58);
+  ctx.lineTo(26, 58);
+  ctx.closePath();
+  ctx.fill();
+  if (cracks > 0) {
+    ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(22, 18);
+    ctx.lineTo(36, 40);
+    ctx.lineTo(28, 58);
+    ctx.stroke();
+  }
+  if (cracks > 1) {
+    ctx.beginPath();
+    ctx.moveTo(58, 16);
+    ctx.lineTo(48, 36);
+    ctx.lineTo(62, 56);
+    ctx.stroke();
+  }
+}
+
 function drawCoin(ctx) {
   ctx.fillStyle = '#f9a825';
   ctx.beginPath();
@@ -307,6 +384,9 @@ export function buildTextures(scene) {
   canvasTex(scene, 'player', 68, 68, drawPlayer);
   canvasTex(scene, 'enemy', 72, 72, (ctx) => drawEnemy(ctx, false));
   canvasTex(scene, 'enemyHurt', 72, 72, (ctx) => drawEnemy(ctx, true));
+  canvasTex(scene, 'brute', 80, 80, (ctx) => drawBrute(ctx, 0));
+  canvasTex(scene, 'bruteHurt', 80, 80, (ctx) => drawBrute(ctx, 1));
+  canvasTex(scene, 'bruteCrack', 80, 80, (ctx) => drawBrute(ctx, 2));
   canvasTex(scene, 'coin', TEX, TEX, drawCoin);
   canvasTex(scene, 'start', TEX, TEX, drawStart);
   canvasTex(scene, 'finish', TEX, TEX, drawFinish);

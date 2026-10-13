@@ -5,6 +5,7 @@ import {
   TILE,
   VIEW_H,
   VIEW_W,
+  campaignFor,
   erase,
   findCells,
   getRows,
@@ -15,15 +16,19 @@ import {
 } from './level.js';
 import { facing, isDown, isFireHeld, setFacing, stickVector } from './input.js';
 import {
+  BRUTE_HP,
+  BRUTE_PATROL_SPEED,
   ENEMY_HALF,
   MAD_MAX_SPEED,
   MAD_MIN_SPEED,
   PLAYER_HALF,
   PLAYER_SPEED,
   chase,
+  corridorHeading,
   madSpeed,
   moveBody,
   separateEnemies,
+  stepBrute,
 } from './sim.js';
 import { buildTextures } from './textures.js';
 import { clearFx, flashScreen, popText, spawnBurst, updateFx } from './fx.js';
@@ -55,6 +60,7 @@ export class GameScene extends Phaser.Scene {
       .setDepth(30);
     this.mode = 'build';
     this.tool = 'B';
+    this.campaign = 0;
     this.fx = [];
     this.enemies = [];
     this.coins = [];
@@ -94,7 +100,14 @@ export class GameScene extends Phaser.Scene {
   }
 
   emitMode() {
-    window.dispatchEvent(new CustomEvent('bbb-mode', { detail: this.mode }));
+    window.dispatchEvent(
+      new CustomEvent('bbb-mode', {
+        detail: {
+          mode: this.mode,
+          campaign: this.mode === 'play' ? this.campaign || 0 : 0,
+        },
+      }),
+    );
   }
 
   onLevelChange(dirty) {
@@ -117,7 +130,7 @@ export class GameScene extends Phaser.Scene {
       if (hp === 2) return 'brick1';
       return 'brick0';
     }
-    return { W: 'solid', E: 'enemy', C: 'coin', S: 'start', F: 'finish' }[ch];
+    return { W: 'solid', E: 'enemy', M: 'brute', C: 'coin', S: 'start', F: 'finish' }[ch];
   }
 
   renderCell(tx, ty) {
@@ -128,7 +141,7 @@ export class GameScene extends Phaser.Scene {
       this.sprites[ty][tx] = null;
     }
     let ch = this.mode === 'play' ? this.grid[ty][tx] : getRows()[ty][tx];
-    if (this.mode === 'play' && (ch === 'E' || ch === 'C')) ch = '.';
+    if (this.mode === 'play' && (ch === 'E' || ch === 'C' || ch === 'M')) ch = '.';
     if (!ch || ch === '.') return;
     const img = this.add.image(tx * TILE, ty * TILE, this.textureFor(ch, tx, ty));
     img.setOrigin(0, 0).setDisplaySize(TILE, TILE).setDepth(10 + (ty + 1) * TILE);
@@ -226,6 +239,7 @@ export class GameScene extends Phaser.Scene {
     }
     window.dispatchEvent(new CustomEvent('bbb-hide-results'));
     this.mode = 'play';
+    this.campaign = campaignFor(rows);
     this.won = false;
     this.respawning = false;
     this.lifeGen += 1;
@@ -251,7 +265,10 @@ export class GameScene extends Phaser.Scene {
     const spawn = tileCenter(starts[0].x, starts[0].y);
     this.spawn = spawn;
     this.player = this.makePlayer(spawn.x, spawn.y);
-    this.enemies = findCells(rows, 'E').map((cell) => this.makeEnemy(cell));
+    this.enemies = [
+      ...findCells(rows, 'E').map((cell) => this.makeEnemy(cell, 'mad')),
+      ...findCells(rows, 'M').map((cell) => this.makeEnemy(cell, 'brute')),
+    ];
     this.enemyTotal = this.enemies.length;
     this.coins = findCells(rows, 'C').map((cell) => this.makeCoin(cell));
     this.coinsTotal = this.coins.length;
@@ -313,20 +330,28 @@ export class GameScene extends Phaser.Scene {
     return container;
   }
 
-  makeEnemy(cell) {
+  makeEnemy(cell, kind) {
+    const brute = kind === 'brute';
     const { x, y } = tileCenter(cell.x, cell.y);
     const container = this.add.container(x, y).setDepth(10 + y);
-    const shadow = this.add.image(0, 16, 'shadow').setDisplaySize(32, 12);
-    const body = this.add.image(0, 0, 'enemy').setDisplaySize(38, 38);
+    const shadow = this.add.image(0, 16, 'shadow').setDisplaySize(brute ? 40 : 32, 12);
+    const body = this.add
+      .image(0, 0, brute ? 'brute' : 'enemy')
+      .setDisplaySize(brute ? 46 : 38, brute ? 46 : 38);
     container.add([shadow, body]);
     container.bodySprite = body;
     return {
       x,
       y,
-      hp: 2,
+      homeX: x,
+      homeY: y,
+      hp: brute ? BRUTE_HP : 2,
       alive: true,
       sprite: container,
-      speed: MAD_MIN_SPEED,
+      speed: brute ? BRUTE_PATROL_SPEED : MAD_MIN_SPEED,
+      kind: brute ? 'brute' : 'mad',
+      heading: brute ? corridorHeading(this.grid, x, y) : 0,
+      aggro: 0,
     };
   }
 
@@ -451,21 +476,36 @@ export class GameScene extends Phaser.Scene {
 
   updateEnemies(dt) {
     if (!this.player) return;
+    const chasing = !this.respawning && this.player.visible;
     for (const enemy of this.enemies) {
       if (!enemy.alive) continue;
-      enemy.speed = madSpeed(this.finishElapsed || 0);
-      chase(enemy, this.player, dt, ENEMY_HALF, this.grid);
-      enemy.sprite.setPosition(enemy.x, enemy.y);
-      enemy.sprite.setDepth(10 + enemy.y);
-      const rage = (enemy.speed - MAD_MIN_SPEED) / (MAD_MAX_SPEED - MAD_MIN_SPEED);
-      const wobble = Math.sin(this.time.now / (160 - rage * 70)) * (3 + rage * 8);
-      enemy.sprite.bodySprite.setAngle(wobble);
+      if (enemy.kind === 'brute') this.updateBrute(enemy, dt, chasing);
+      else this.updateMad(enemy, dt);
     }
     separateEnemies(this.enemies, ENEMY_HALF, this.grid);
     for (const enemy of this.enemies) {
       if (!enemy.alive) continue;
       enemy.sprite.setPosition(enemy.x, enemy.y);
     }
+  }
+
+  updateMad(enemy, dt) {
+    enemy.speed = madSpeed(this.finishElapsed || 0);
+    chase(enemy, this.player, dt, ENEMY_HALF, this.grid);
+    enemy.sprite.setPosition(enemy.x, enemy.y);
+    enemy.sprite.setDepth(10 + enemy.y);
+    const rage = (enemy.speed - MAD_MIN_SPEED) / (MAD_MAX_SPEED - MAD_MIN_SPEED);
+    const wobble = Math.sin(this.time.now / (160 - rage * 70)) * (3 + rage * 8);
+    enemy.sprite.bodySprite.setAngle(wobble);
+  }
+
+  updateBrute(enemy, dt, chasing) {
+    const mode = stepBrute(enemy, this.player, dt, ENEMY_HALF, this.grid, chasing);
+    enemy.sprite.setPosition(enemy.x, enemy.y);
+    enemy.sprite.setDepth(10 + enemy.y);
+    const angry = mode === 'chase';
+    const wobble = Math.sin(this.time.now / (angry ? 70 : 260)) * (angry ? 10 : 3);
+    enemy.sprite.bodySprite.setAngle(wobble);
   }
 
   updateBullets(dt) {
@@ -504,7 +544,8 @@ export class GameScene extends Phaser.Scene {
   enemyAt(x, y) {
     for (const enemy of this.enemies) {
       if (!enemy.alive) continue;
-      if (Math.hypot(enemy.x - x, enemy.y - y) < 18) return enemy;
+      const radius = enemy.kind === 'brute' ? 20 : 18;
+      if (Math.hypot(enemy.x - x, enemy.y - y) < radius) return enemy;
     }
     return null;
   }
@@ -574,6 +615,10 @@ export class GameScene extends Phaser.Scene {
 
   hitEnemy(enemy) {
     if (!enemy.alive) return;
+    if (enemy.kind === 'brute') {
+      this.hitBrute(enemy);
+      return;
+    }
     enemy.hp -= 1;
     if (enemy.hp <= 0) {
       enemy.alive = false;
@@ -610,6 +655,44 @@ export class GameScene extends Phaser.Scene {
     });
   }
 
+  hitBrute(enemy) {
+    enemy.hp -= 1;
+    if (enemy.hp <= 0) {
+      enemy.alive = false;
+      const x = enemy.x;
+      const y = enemy.y;
+      enemy.sprite.destroy();
+      this.smashed += 1;
+      this.freeze = 0.08;
+      spawnBurst(this, x, y, {
+        count: 12,
+        colors: [0x7b1fa2, 0x4a148c, 0xce93d8, 0xffea00, 0xffffff, 0x311b92],
+        power: 340,
+        shake: 0.014,
+        ring: true,
+        ringColor: 0xce93d8,
+        word: 'SMASH!',
+        wordColor: '#e1bee7',
+      });
+      flashScreen(this, 0xffffff, 0.22);
+      this.emitHud(true);
+      return;
+    }
+    enemy.sprite.bodySprite.setTexture(enemy.hp === 1 ? 'bruteCrack' : 'bruteHurt');
+    enemy.sprite.bodySprite.setDisplaySize(46, 46);
+    enemy.sprite.bodySprite.setTintFill(0xffffff);
+    this.time.delayedCall(80, () => {
+      if (enemy.alive && enemy.sprite.bodySprite?.active) enemy.sprite.bodySprite.clearTint();
+    });
+    spawnBurst(this, enemy.x, enemy.y, {
+      count: 5,
+      colors: [0xce93d8, 0xffea00],
+      power: 160,
+      life: 0.4,
+      shake: 0.003,
+    });
+  }
+
   updatePlayCoins(time) {
     const wave = time / 200;
     for (const coin of this.coins) {
@@ -635,7 +718,8 @@ export class GameScene extends Phaser.Scene {
     if (!this.player || this.respawning || this.invuln > 0 || this.won) return;
     for (const enemy of this.enemies) {
       if (!enemy.alive) continue;
-      if (Math.hypot(enemy.x - this.player.x, enemy.y - this.player.y) <= 22) {
+      const reach = enemy.kind === 'brute' ? 24 : 22;
+      if (Math.hypot(enemy.x - this.player.x, enemy.y - this.player.y) <= reach) {
         this.hurt(enemy);
         return;
       }
@@ -675,6 +759,13 @@ export class GameScene extends Phaser.Scene {
     this.player.y = this.spawn.y;
     this.knockX = 0;
     this.knockY = 0;
+    for (const enemy of this.enemies) {
+      if (!enemy.alive || enemy.kind !== 'brute') continue;
+      enemy.x = enemy.homeX;
+      enemy.y = enemy.homeY;
+      enemy.aggro = 0;
+      enemy.sprite.setPosition(enemy.x, enemy.y);
+    }
     this.emitHud(true);
     const gen = this.lifeGen;
     this.time.delayedCall(700, () => {
@@ -718,6 +809,7 @@ export class GameScene extends Phaser.Scene {
           coinsTotal: this.coinsTotal,
           smashed: this.smashed,
           enemyTotal: this.enemyTotal,
+          campaign: this.campaign || 0,
         },
       }),
     );

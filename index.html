@@ -79,6 +79,7 @@
           </div>
           <div class="build-only actions">
             <button type="button" id="btn-jasper" class="btn btn-jasper">Jasper's Level 1</button>
+            <button type="button" id="btn-level2" class="btn btn-level2">Level 2 Maze</button>
             <button type="button" id="btn-play" class="btn btn-go">Play Test</button>
             <div class="action-row">
               <button type="button" id="btn-clear" class="btn">Clear</button>
@@ -92,9 +93,9 @@
               <li><b>Move</b> with WASD, the arrow keys, or the stick.</li>
               <li><b>Shoot</b> by holding the mouse or a finger toward a target, or hold Shoot to fire the way you are moving.</li>
             </ul>
-            <p>Red walls break after 3 hits. Blue walls never break. The mad circle pops after 2 hits.</p>
-            <p>It starts slow and gets faster. Touching it costs one heart. At 0 hearts you pop back to Start.</p>
-            <p>Reach the blue flag to clear the level.</p>
+            <p id="help-walls">Red walls break after 3 hits. Blue walls never break. The mad circle pops after 2 hits.</p>
+            <p id="help-hearts">It starts slow and gets faster. Touching it costs one heart. At 0 hearts you pop back to Start.</p>
+            <p id="help-goal">Reach the blue flag to clear the level.</p>
             <button type="button" id="btn-back" class="btn btn-go">Back to build</button>
           </div>
         </aside>
@@ -109,13 +110,14 @@
             </div>
             <div id="results" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="results-title">
               <div class="card">
-                <p class="eyebrow">Level clear</p>
+                <p id="results-eyebrow" class="eyebrow">Level clear</p>
                 <h2 id="results-title">You did it!</h2>
                 <p id="results-time" class="results-time">0:00.0</p>
                 <ul class="results-list">
                   <li id="results-coins">Coins collected: 0</li>
                   <li id="results-enemies">Monsters smashed: 0</li>
                 </ul>
+                <button type="button" id="btn-next" class="btn btn-go hidden">Play Level 2</button>
                 <div class="action-row">
                   <button type="button" id="btn-again" class="btn btn-go">Play again</button>
                   <button type="button" id="btn-results-back" class="btn">Back to build</button>
