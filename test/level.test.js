@@ -37,7 +37,7 @@ test('erase and summarize count every piece', () => {
   rows = placeOn(rows, 5, 0, 'S').rows;
   rows = placeOn(rows, 6, 0, 'F').rows;
   const counts = summarize(rows);
-  assert.deepEqual(counts, { B: 1, W: 1, E: 2, C: 1, S: 1, F: 1 });
+  assert.deepEqual(counts, { B: 1, W: 1, E: 2, C: 1, S: 1, F: 1, M: 0 });
   rows = eraseOn(rows, 2, 0).rows;
   assert.equal(summarize(rows).E, 1);
   assert.equal(eraseOn(rows, 2, 0).dirty.length, 0);
@@ -65,6 +65,26 @@ test('share codes round-trip and stay url-safe', async () => {
   assert.equal(await decodeLevel('nope'), null);
   assert.equal(await decodeLevel(''), null);
   assert.equal(await decodeLevel('z@@@'), null);
+});
+
+test("Jasper's Level 1 layout is unchanged", () => {
+  assert.deepEqual(jaspersLevel(), [
+    'WWWWWWWWWWWWWWWWWWWW',
+    'W..................W',
+    'W.S..C..B..........W',
+    'W.......B..........W',
+    'W.......B...C.BBB..W',
+    'W..................W',
+    'W..................W',
+    'W.......B..........W',
+    'W..C....B..CE......W',
+    'W.......B..........W',
+    'W.BBBBBBBBB..BBB...W',
+    'W..................W',
+    'W..............C.F.W',
+    'W..................W',
+    'WWWWWWWWWWWWWWWWWWWW',
+  ]);
 });
 
 test("Jasper's Level 1 has a blue border, five coins, one mad enemy, and a long path", () => {

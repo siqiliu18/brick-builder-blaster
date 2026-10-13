@@ -10,6 +10,7 @@ import {
   getRows,
   initLevel,
   jaspersLevel,
+  level2,
   loadMessage,
   replaceLevel,
   saveNow,
@@ -70,7 +71,7 @@ function refreshStats() {
   document.getElementById('stat-line').textContent = [
     `Brick walls: ${counts.B}`,
     `Solid walls: ${counts.W}`,
-    `Monsters: ${counts.E}`,
+    `Monsters: ${counts.E + counts.M}`,
     `Coins: ${counts.C}`,
     `Start: ${counts.S === 1 ? 'yes' : 'no'}`,
     `Finish: ${counts.F === 1 ? 'yes' : 'no'}`,
@@ -106,9 +107,34 @@ async function boot() {
   }
 
   window.addEventListener('bbb-tool', (event) => selectTool(event.detail));
+  const helpWalls = document.getElementById('help-walls');
+  const helpHearts = document.getElementById('help-hearts');
+  const helpGoal = document.getElementById('help-goal');
+  const level1Help = {
+    walls: helpWalls.textContent,
+    hearts: helpHearts.textContent,
+    goal: helpGoal.textContent,
+  };
+  const level2Help = {
+    walls: 'Blue walls make the maze. Shoot the red gate to open it. A red brick hides a bonus coin.',
+    hearts: 'Purple monsters take 3 hits. They chase when they see you. You run faster, so back up and shoot.',
+    goal: 'Follow the coins to the blue flag.',
+  };
+  function showHelp(campaign) {
+    const help = campaign === 2 ? level2Help : level1Help;
+    helpWalls.textContent = help.walls;
+    helpHearts.textContent = help.hearts;
+    helpGoal.textContent = help.goal;
+  }
+
   window.addEventListener('bbb-mode', (event) => {
-    document.body.dataset.mode = event.detail;
-    document.getElementById('mode-pill').textContent = event.detail === 'play' ? 'Playing' : 'Building';
+    const detail = typeof event.detail === 'string' ? { mode: event.detail, campaign: 0 } : event.detail;
+    document.body.dataset.mode = detail.mode;
+    const pill = document.getElementById('mode-pill');
+    if (detail.mode !== 'play') pill.textContent = 'Building';
+    else if (detail.campaign === 2) pill.textContent = 'Level 2';
+    else pill.textContent = 'Playing';
+    showHelp(detail.mode === 'play' ? detail.campaign : 1);
   });
   window.addEventListener('bbb-toast', (event) => toast(event.detail));
   window.addEventListener('bbb-hide-results', () => hide('results'));
@@ -121,6 +147,10 @@ async function boot() {
   });
   window.addEventListener('bbb-results', (event) => {
     const stats = event.detail;
+    const levelTwo = stats.campaign === 2;
+    document.getElementById('results-eyebrow').textContent = levelTwo ? 'Level 2 clear' : 'Level clear';
+    document.getElementById('results-title').textContent = levelTwo ? 'You beat the maze!' : 'You did it!';
+    document.getElementById('btn-next').classList.toggle('hidden', stats.campaign !== 1);
     document.getElementById('results-time').textContent = formatTime(stats.time);
     document.getElementById('results-coins').textContent =
       `Coins collected: ${stats.coins} / ${stats.coinsTotal}`;
@@ -166,6 +196,22 @@ async function boot() {
         toast("Jasper's Level 1 loaded. Change anything you like.");
       },
     );
+  });
+  document.getElementById('btn-level2').addEventListener('click', () => {
+    ask(
+      'Load Level 2?',
+      'This maze replaces the level you are building. You can still edit it afterward.',
+      'Load it',
+      () => {
+        replaceLevel(level2());
+        toast('Level 2 loaded. Purple monsters take 3 hits.');
+      },
+    );
+  });
+  document.getElementById('btn-next').addEventListener('click', () => {
+    replaceLevel(level2());
+    hide('results');
+    if (scene()?.enterPlay()) toast('Level 2! Follow the coins through the maze.');
   });
   document.getElementById('confirm-no').addEventListener('click', () => {
     confirmAction = null;

@@ -80,3 +80,97 @@ function nudge(body, dx, dy, half, grid) {
   const nextY = body.y + dy;
   if (!isBlocked(grid, body.x, nextY, half)) body.y = nextY;
 }
+
+export const BRUTE_HP = 3;
+export const BRUTE_CHASE_SPEED = 100;
+export const BRUTE_PATROL_SPEED = 44;
+export const BRUTE_SIGHT = 280;
+export const BRUTE_CHASE_LEASH = 200;
+export const BRUTE_PATROL_LEASH = 88;
+
+export function seesTarget(enemy, target, grid) {
+  if (!target) return false;
+  const dx = target.x - enemy.x;
+  const dy = target.y - enemy.y;
+  const dist = Math.hypot(dx, dy);
+  if (dist > BRUTE_SIGHT || dist < 1) return dist < 1;
+  const steps = Math.max(1, Math.ceil(dist / (TILE / 2)));
+  for (let i = 1; i < steps; i++) {
+    const x = enemy.x + (dx * i) / steps;
+    const y = enemy.y + (dy * i) / steps;
+    const tx = Math.floor(x / TILE);
+    const ty = Math.floor(y / TILE);
+    if (ty < 0 || tx < 0 || ty >= ROWS || tx >= COLS) return false;
+    const ch = grid[ty][tx];
+    if (ch === 'B' || ch === 'W') return false;
+  }
+  return true;
+}
+
+export function corridorHeading(grid, x, y) {
+  const tx = Math.floor(x / TILE);
+  const ty = Math.floor(y / TILE);
+  const open = (cx, cy) => {
+    const ch = grid[cy]?.[cx];
+    return Boolean(ch) && ch !== 'W' && ch !== 'B';
+  };
+  let best = -1;
+  let heading = 0;
+  for (const [dx, dy, angle] of [
+    [1, 0, 0],
+    [-1, 0, Math.PI],
+    [0, 1, Math.PI / 2],
+    [0, -1, -Math.PI / 2],
+  ]) {
+    let n = 0;
+    let cx = tx + dx;
+    let cy = ty + dy;
+    while (open(cx, cy)) {
+      n += 1;
+      cx += dx;
+      cy += dy;
+    }
+    if (n > best) {
+      best = n;
+      heading = angle;
+    }
+  }
+  return heading;
+}
+
+export function patrolBounce(enemy, dt, half, grid) {
+  const speed = BRUTE_PATROL_SPEED;
+  enemy.speed = speed;
+  const vx = Math.cos(enemy.heading) * speed;
+  const vy = Math.sin(enemy.heading) * speed;
+  const nextX = enemy.x + vx * dt;
+  const nextY = enemy.y + vy * dt;
+  if (Math.hypot(nextX - enemy.homeX, nextY - enemy.homeY) > BRUTE_PATROL_LEASH) {
+    enemy.heading += Math.PI;
+    return;
+  }
+  const beforeX = enemy.x;
+  const beforeY = enemy.y;
+  moveBody(enemy, vx, vy, dt, half, grid);
+  if (Math.hypot(enemy.x - beforeX, enemy.y - beforeY) < speed * dt * 0.35) enemy.heading += Math.PI;
+}
+
+/** Pace a short beat, then rush when the player is in sight. Stops at a leash so a kid can back away. */
+export function stepBrute(enemy, target, dt, half, grid, active) {
+  const seeing = Boolean(active) && seesTarget(enemy, target, grid);
+  if (seeing) enemy.aggro = 0.7;
+  else enemy.aggro = Math.max(0, (enemy.aggro || 0) - dt);
+  const fromHome = Math.hypot(enemy.x - enemy.homeX, enemy.y - enemy.homeY);
+  if (enemy.aggro > 0 && fromHome < BRUTE_CHASE_LEASH) {
+    enemy.speed = BRUTE_CHASE_SPEED;
+    chase(enemy, target, dt, half, grid);
+    return 'chase';
+  }
+  if (fromHome > TILE * 1.2) {
+    enemy.speed = BRUTE_PATROL_SPEED;
+    chase(enemy, { x: enemy.homeX, y: enemy.homeY }, dt, half, grid);
+    return 'return';
+  }
+  patrolBounce(enemy, dt, half, grid);
+  return 'patrol';
+}

@@ -250,6 +250,16 @@ h2 { margin: 0 0 4px; font-size: 16px; }
   font-size: 16px;
 }
 
+.btn-level2 {
+  background: #ce93d8;
+  color: #311b92;
+  border-color: #6a1b9a;
+  box-shadow: 0 4px 0 #6a1b9a;
+  font-size: 16px;
+}
+
+#btn-next { width: 100%; }
+
 .btn-go {
   background: var(--green);
   color: #083018;

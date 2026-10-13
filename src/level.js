@@ -4,7 +4,7 @@ export const TILE = 40;
 export const VIEW_W = COLS * TILE;
 export const VIEW_H = ROWS * TILE;
 
-const TILE_CHARS = '.BWECFS';
+const TILE_CHARS = '.BWECFSM';
 const KEY = 'brick-builder-blaster-v1';
 
 const listeners = new Set();
@@ -47,6 +47,42 @@ export function jaspersLevel() {
   ]) set(x, y, 'C');
   set(12, 8, 'E');
   return rows;
+}
+
+/**
+ * Level 2, the Brick Maze. Blue walls form the route, a red gate has to be
+ * shot open, and M tiles are purple brutes (tougher than Level 1's mad circle).
+ */
+export function level2() {
+  return [
+    'WWWWWWWWWWWWWWWWWWWW',
+    'W....WWWWWWWWWWWWWWW',
+    'W.SC..CWWWWWWWWWWWWW',
+    'W....WWWWWWWWWWWWWWW',
+    'WBBWWWWWWWWWWWWWWWWW',
+    'W..WWWWWWWWWWWWWWWWW',
+    'W.CWWWW.......MWWWWW',
+    'W..WWWW...C....WWWWW',
+    'W..WWWW.MWWWW..WWWWW',
+    'W..WWWW..WWWWC.BCWWW',
+    'W..WWWW.CWWWW..WWWWW',
+    'W........WWWW......W',
+    'W....C...WWWW..C..FW',
+    'WWWWWWWWWWWWWWW.M..W',
+    'WWWWWWWWWWWWWWWWWWWW',
+  ];
+}
+
+export function sameRows(a, b) {
+  if (!a || !b || a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+  return true;
+}
+
+export function campaignFor(rowsIn) {
+  if (sameRows(rowsIn, jaspersLevel())) return 1;
+  if (sameRows(rowsIn, level2())) return 2;
+  return 0;
 }
 
 export function validateRows(value) {
@@ -101,7 +137,7 @@ export function findCells(rowsIn, ch) {
 }
 
 export function summarize(rowsIn) {
-  const counts = { B: 0, W: 0, E: 0, C: 0, S: 0, F: 0 };
+  const counts = { B: 0, W: 0, E: 0, C: 0, S: 0, F: 0, M: 0 };
   for (const row of rowsIn) {
     for (const ch of row) {
       if (counts[ch] != null) counts[ch] += 1;
