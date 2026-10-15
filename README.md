@@ -4,7 +4,7 @@ A small browser game for building a LEGO-like level, then running and blasting t
 
 The game opens on **Jasper's Level 1**: a blue brick border, five coins, a green start flag, a blue finish flag, and one mad circle that starts slow and speeds up. Press that button any time to load his layout again. You can edit it in build mode.
 
-Finish Level 1 and press **Play Level 2** on the clear card. Level 2 is a maze of blue walls, a red gate you shoot open, and three purple monsters that take 3 hits. You ride the rusty tank: same stick and shoot controls, a little slower than running, and the hull soaks 5 hits before you lose hearts. Shots still come from the hero and do the same damage as on foot. **Level 2 Maze** in the toolbar loads it again.
+Finish Level 1 and press **Play Level 2** on the clear card. Level 2 is a maze of blue walls, a red gate you shoot open, and three purple monsters that take 3 hits. You ride the rusty tank: same stick and shoot controls, a little slower than running, and the hull soaks 5 hits before you lose hearts. Shots come from the tank barrel and do the same damage as on foot. **Level 2 Maze** in the toolbar loads it again.
 
 Place brick walls, solid walls, enemies, coins, a start, and a finish. Press **Play Test** and use WASD or the arrow keys to move. Hold the mouse button to shoot toward the cursor. On a tablet, drag the yellow stick to move, touch the board to aim and shoot, or hold **Shoot** to fire the way you are moving. Tap a square in build mode to place the selected piece. Red walls shatter after 3 hits. The mad circle pops into bricks after 2 hits. Touching it costs a heart. Reach the finish to see your time, coins, and enemies smashed.
 

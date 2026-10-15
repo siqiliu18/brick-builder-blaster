@@ -326,26 +326,25 @@ export class GameScene extends Phaser.Scene {
 
   makePlayer(x, y) {
     const riding = this.campaign === 2;
-    const seatY = riding ? -18 : 0;
     const container = this.add.container(x, y).setDepth(10 + y);
     const shadow = this.add.image(0, riding ? 22 : 16, 'shadow').setDisplaySize(riding ? 50 : 34, 12);
-    const parts = [shadow];
     if (riding) {
-      const hull = this.add.image(0, 8, 'tankHull').setDisplaySize(58, 58);
+      const hull = this.add.image(0, 0, 'tankHull').setDisplaySize(58, 58);
+      container.add([shadow, hull]);
       container.hull = hull;
-      parts.push(hull);
+      container.bodySprite = hull;
+      container.blaster = null;
+      container.riding = true;
+      container.seatY = -18;
+      return container;
     }
-    const body = this.add.image(0, seatY, 'player').setDisplaySize(riding ? 36 : 40, riding ? 36 : 40);
-    const blaster = this.add
-      .image(riding ? 14 : 18, seatY, 'blaster')
-      .setDisplaySize(16, 8)
-      .setOrigin(0, 0.5);
-    parts.push(body, blaster);
-    container.add(parts);
+    const body = this.add.image(0, 0, 'player').setDisplaySize(40, 40);
+    const blaster = this.add.image(18, 0, 'blaster').setDisplaySize(16, 8).setOrigin(0, 0.5);
+    container.add([shadow, body, blaster]);
     container.bodySprite = body;
     container.blaster = blaster;
-    container.riding = riding;
-    container.seatY = seatY;
+    container.riding = false;
+    container.seatY = 0;
     return container;
   }
 
@@ -459,11 +458,15 @@ export class GameScene extends Phaser.Scene {
       : buttonFire
         ? facing()
         : Math.atan2(pointer.worldY - originY, pointer.worldX - originX);
-    this.player.blaster.rotation = angle;
-    this.player.blaster.setPosition(Math.cos(angle) * 16, seat + Math.sin(angle) * 8);
-    if (this.player.hull && moving) this.player.hull.rotation = Math.atan2(iy, ix) + Math.PI / 2;
+    if (this.player.blaster) {
+      this.player.blaster.rotation = angle;
+      this.player.blaster.setPosition(Math.cos(angle) * 16, seat + Math.sin(angle) * 8);
+    }
+    if (this.player.hull) this.player.hull.rotation = angle + Math.PI / 2;
     if (moving) this.bob += dt * 14;
-    this.player.bodySprite.y = seat + Math.sin(this.bob) * (moving ? 1.2 : 0.25);
+    if (!this.player.riding) {
+      this.player.bodySprite.y = seat + Math.sin(this.bob) * (moving ? 1.2 : 0.25);
+    }
     if (this.invuln > 0) {
       this.invuln -= dt;
       this.player.alpha = Math.sin(time / 40) > 0 ? 1 : 0.35;
@@ -484,8 +487,12 @@ export class GameScene extends Phaser.Scene {
 
   shoot(angle) {
     const seat = this.player.seatY || 0;
-    const x = this.player.x + Math.cos(angle) * 24;
-    const y = this.player.y + seat + Math.sin(angle) * 14;
+    const reach = this.player.riding ? 26 : 24;
+    const along = this.player.riding ? 26 : 14;
+    const x = this.player.x + Math.cos(angle) * reach;
+    const y = this.player.riding
+      ? this.player.y + Math.sin(angle) * along
+      : this.player.y + seat + Math.sin(angle) * along;
     const speed = 560;
     const sprite = this.add.image(x, y, 'bullet').setDepth(3200).setRotation(angle);
     this.bullets.push({ x, y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, sprite });
