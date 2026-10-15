@@ -29,6 +29,7 @@ import {
   corridorHeading,
   madSpeed,
   moveBody,
+  riderMuzzle,
   seesTarget,
   stepBrute,
   stepTank,
@@ -169,6 +170,10 @@ test('a tank shot deals one heart, the same as a brute touch', () => {
   assert.equal(shot.damage, 1);
   assert.equal(shot.damage, TANK_DAMAGE);
   assert.ok(Math.hypot(shot.vx, shot.vy) < PLAYER_SPEED);
+  const aim = Math.atan2(shot.vy, shot.vx);
+  const muzzle = riderMuzzle(0, 0, aim);
+  const barrel = { x: Math.cos(aim) * 24, y: Math.sin(aim) * 24 };
+  assert.ok(Math.hypot(muzzle.x - barrel.x, muzzle.y - barrel.y) > 8);
 });
 
 test('a careful kid can clear Level 2', () => {

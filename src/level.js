@@ -51,7 +51,7 @@ export function jaspersLevel() {
 
 /**
  * Level 2, the Brick Maze. Blue walls form the route, a red gate has to be
- * shot open, M tiles are purple brutes, and T is the rusty tank.
+ * shot open, M tiles are purple brutes, and T is the rusty tank with a rider.
  */
 export function level2() {
   return [

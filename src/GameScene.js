@@ -26,6 +26,7 @@ import {
   TANK_DAMAGE,
   TANK_HALF,
   TANK_HP,
+  riderMuzzle,
   chase,
   corridorHeading,
   madSpeed,
@@ -34,7 +35,7 @@ import {
   stepBrute,
   stepTank,
 } from './sim.js';
-import { buildTextures } from './textures.js';
+import { RIDER_SEAT_Y, RIDER_SIZE, buildTextures } from './textures.js';
 import { clearFx, flashScreen, popText, spawnBurst, updateFx } from './fx.js';
 
 const DRAG_TOOLS = new Set(['B', 'W']);
@@ -345,9 +346,15 @@ export class GameScene extends Phaser.Scene {
     const container = this.add.container(x, y).setDepth(10 + y);
     const shadow = this.add.image(0, tank ? 18 : 16, 'shadow').setDisplaySize(tank ? 44 : brute ? 40 : 32, 12);
     const body = this.add
-      .image(0, 0, tank ? 'tank' : brute ? 'brute' : 'enemy')
+      .image(0, 0, tank ? 'tankHull' : brute ? 'brute' : 'enemy')
       .setDisplaySize(tank ? 54 : brute ? 46 : 38, tank ? 54 : brute ? 46 : 38);
-    container.add([shadow, body]);
+    const parts = [shadow, body];
+    if (tank) {
+      const rider = this.add.image(0, RIDER_SEAT_Y, 'tankRider').setDisplaySize(RIDER_SIZE, RIDER_SIZE);
+      parts.push(rider);
+      container.rider = rider;
+    }
+    container.add(parts);
     container.bodySprite = body;
     return {
       x,
@@ -525,12 +532,13 @@ export class GameScene extends Phaser.Scene {
 
   updateTank(enemy, dt, chasing) {
     const busy = this.shells.some((shell) => shell.alive && shell.owner === enemy);
-    const { shot, face } = stepTank(enemy, this.player, dt, TANK_HALF, this.grid, chasing, busy);
+    const { shot, face, aim } = stepTank(enemy, this.player, dt, TANK_HALF, this.grid, chasing, busy);
     enemy.sprite.setPosition(enemy.x, enemy.y);
     enemy.sprite.setDepth(10 + enemy.y);
     enemy.sprite.bodySprite.setRotation(face + Math.PI / 2);
-    if (enemy.windup > 0) enemy.sprite.bodySprite.setTint(0xffc9a0);
-    else enemy.sprite.bodySprite.clearTint();
+    enemy.sprite.rider.setRotation(aim + Math.PI / 2);
+    if (enemy.windup > 0) enemy.sprite.rider.setTint(0xffc9a0);
+    else enemy.sprite.rider.clearTint();
     enemy.smoke = (enemy.smoke || 0) - dt;
     if (enemy.smoke <= 0) {
       enemy.smoke = 0.85;
@@ -548,7 +556,17 @@ export class GameScene extends Phaser.Scene {
   }
 
   fireShell(enemy, shot) {
-    const sprite = this.add.image(shot.x, shot.y, 'tankShot').setDepth(16).setDisplaySize(16, 16);
+    const fromRider = riderMuzzle(enemy.x, enemy.y, shot.angle);
+    const sprite = this.add.image(fromRider.x, fromRider.y, 'tankShot').setDepth(16).setDisplaySize(12, 12);
+    const flash = this.add.image(fromRider.x, fromRider.y, 'stud').setDepth(17).setTint(0xffe14a).setScale(0.7);
+    this.tweens.add({
+      targets: flash,
+      alpha: 0,
+      scale: 1.6,
+      duration: 90,
+      onComplete: () => flash.destroy(),
+    });
+    shot = { ...shot, x: fromRider.x, y: fromRider.y };
     this.shells.push({
       x: shot.x,
       y: shot.y,
@@ -832,12 +850,15 @@ export class GameScene extends Phaser.Scene {
       this.emitHud(true);
       return;
     }
-    const texture = enemy.hp <= 1 ? 'tankBreak' : enemy.hp <= 3 ? 'tankCrack' : 'tank';
+    const texture = enemy.hp <= 1 ? 'tankHullBreak' : enemy.hp <= 3 ? 'tankHullCrack' : 'tankHull';
     enemy.sprite.bodySprite.setTexture(texture);
     enemy.sprite.bodySprite.setDisplaySize(54, 54);
     enemy.sprite.bodySprite.setTintFill(0xffffff);
+    enemy.sprite.rider.setTintFill(0xffffff);
     this.time.delayedCall(80, () => {
-      if (enemy.alive && enemy.sprite.bodySprite?.active) enemy.sprite.bodySprite.clearTint();
+      if (!enemy.alive) return;
+      if (enemy.sprite.bodySprite?.active) enemy.sprite.bodySprite.clearTint();
+      if (enemy.sprite.rider?.active) enemy.sprite.rider.clearTint();
     });
     spawnBurst(this, enemy.x, enemy.y, {
       count: 5,
@@ -921,7 +942,10 @@ export class GameScene extends Phaser.Scene {
       enemy.aggro = 0;
       enemy.windup = 0;
       enemy.cooldown = enemy.kind === 'tank' ? 1.4 : 0;
-      if (enemy.kind === 'tank') enemy.sprite.bodySprite.clearTint();
+      if (enemy.kind === 'tank') {
+        enemy.sprite.bodySprite.clearTint();
+        enemy.sprite.rider.clearTint();
+      }
       enemy.sprite.setPosition(enemy.x, enemy.y);
     }
     for (const shell of this.shells) if (shell.sprite?.active) shell.sprite.destroy();
