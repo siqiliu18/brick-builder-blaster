@@ -16,24 +16,67 @@ const directions = [
   { x: -1, y: -1, angle: (-3 * Math.PI) / 4 },
 ];
 
-test('touch aiming is the same on foot and in the tank, including diagonals', () => {
-  for (const dir of directions) {
-    for (const shootHeld of [false, true]) {
-      const shot = resolveAim({
-        touchControls: true,
-        aimOn: true,
-        aimX: dir.x,
-        aimY: dir.y,
-        lastAim: 0.4,
-        shootHeld,
-      });
-      assert.ok(Math.abs(shot.angle - dir.angle) < 1e-9, `expected ${dir.angle}, got ${shot.angle}`);
-      assert.equal(shot.fire, shootHeld);
-    }
+test('the tank barrel follows movement, including diagonals and in-between angles', () => {
+  const smooth = Math.atan2(0.35, 0.92);
+  const cases = [
+    ...directions.map((dir) => ({ moving: true, moveAngle: dir.angle, expect: dir.angle })),
+    { moving: true, moveAngle: smooth, expect: smooth },
+  ];
+  for (const item of cases) {
+    const shot = resolveAim({
+      followMovement: true,
+      moving: item.moving,
+      moveAngle: item.moveAngle,
+      touchControls: true,
+      aimOn: true,
+      aimX: 0,
+      aimY: -1,
+      lastAim: 0.4,
+      pointerDown: true,
+      pointerInside: true,
+      pointerOnBoard: false,
+      pointerAngle: UP,
+      shootHeld: true,
+    });
+    assert.ok(Math.abs(shot.angle - item.expect) < 1e-9, `expected ${item.expect}, got ${shot.angle}`);
+    assert.equal(shot.fire, true);
   }
 });
 
-test('releasing the right stick keeps the last aim and the left stick does not turn it', () => {
+test('an idle tank keeps the last direction and ignores the right stick', () => {
+  const idle = resolveAim({
+    followMovement: true,
+    moving: false,
+    moveAngle: RIGHT,
+    touchControls: true,
+    aimOn: true,
+    aimX: -1,
+    aimY: 0,
+    lastAim: DOWN,
+    shootHeld: true,
+  });
+  assert.ok(Math.abs(idle.angle - DOWN) < 1e-9);
+  assert.equal(idle.fire, true);
+});
+
+test('on-foot touch aiming still uses the right stick, including left and right', () => {
+  for (const dir of directions) {
+    const shot = resolveAim({
+      followMovement: false,
+      moving: true,
+      moveAngle: UP,
+      touchControls: true,
+      aimOn: true,
+      aimX: dir.x,
+      aimY: dir.y,
+      lastAim: 0.4,
+      shootHeld: true,
+    });
+    assert.ok(Math.abs(shot.angle - dir.angle) < 1e-9, `expected ${dir.angle}, got ${shot.angle}`);
+  }
+});
+
+test('releasing the right stick keeps the last on-foot aim', () => {
   const held = resolveAim({
     touchControls: true,
     aimOn: true,

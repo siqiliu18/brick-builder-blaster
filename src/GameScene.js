@@ -459,6 +459,9 @@ export class GameScene extends Phaser.Scene {
       pointer.isDown && (pointer.downElement === canvas || pointer.target === canvas);
     const aim = aimVector();
     const shot = resolveAim({
+      followMovement: !!this.player.riding,
+      moving,
+      moveAngle: Math.atan2(iy, ix),
       touchControls: document.body.classList.contains('touch-ui'),
       aimX: aim.x,
       aimY: aim.y,
