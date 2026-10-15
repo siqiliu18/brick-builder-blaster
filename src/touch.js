@@ -1,6 +1,6 @@
-import { setFireHeld, setStick } from './input.js';
+import { setAimStick, setFireHeld, setStick } from './input.js';
 
-function bindStick(base, knob) {
+function bindStick(base, knob, apply) {
   let activeId = null;
 
   function place(event) {
@@ -15,15 +15,15 @@ function bindStick(base, knob) {
     knob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
     const nx = dx / max;
     const ny = dy / max;
-    if (Math.hypot(nx, ny) < 0.22) setStick(0, 0, true);
-    else setStick(nx, ny, true);
+    if (Math.hypot(nx, ny) < 0.22) apply(0, 0, true);
+    else apply(nx, ny, true);
   }
 
   function end(event) {
     if (activeId == null || event.pointerId !== activeId) return;
     activeId = null;
     knob.style.transform = 'translate(-50%, -50%)';
-    setStick(0, 0, false);
+    apply(0, 0, false);
   }
 
   base.addEventListener('pointerdown', (event) => {
@@ -88,7 +88,10 @@ export function installTouch() {
   lockPageGestures();
   const stick = document.getElementById('stick');
   const knob = document.getElementById('stick-knob');
+  const aim = document.getElementById('stick-aim');
+  const aimKnob = document.getElementById('stick-aim-knob');
   const shoot = document.getElementById('btn-shoot');
-  if (stick && knob) bindStick(stick, knob);
+  if (stick && knob) bindStick(stick, knob, setStick);
+  if (aim && aimKnob) bindStick(aim, aimKnob, setAimStick);
   if (shoot) bindShoot(shoot);
 }
