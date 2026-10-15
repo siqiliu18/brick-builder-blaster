@@ -14,7 +14,8 @@ import {
   summarize,
   tileCenter,
 } from './level.js';
-import { facing, isDown, isFireHeld, setFacing, stickVector } from './input.js';
+import { aimVector, facing, isDown, isFireHeld, setFacing, stickVector } from './input.js';
+import { resolveAim } from './aim.js';
 import {
   BRUTE_HP,
   BRUTE_PATROL_SPEED,
@@ -81,6 +82,7 @@ export class GameScene extends Phaser.Scene {
     this.respawning = false;
     this.lifeGen = 0;
     this.nextShot = 0;
+    this.aimAngle = 0;
     this.hudSnap = '';
     this.painting = false;
     this.paintErase = false;
@@ -257,6 +259,7 @@ export class GameScene extends Phaser.Scene {
     this.coinsGot = 0;
     this.startedAt = performance.now();
     this.finishElapsed = 0;
+    this.aimAngle = 0;
     this.hudSnap = '';
     this.grid = rows.map((row) => row.split(''));
     this.hp = Array.from({ length: ROWS }, () => Array(COLS).fill(0));
@@ -446,18 +449,31 @@ export class GameScene extends Phaser.Scene {
     const originX = this.player.x;
     const originY = this.player.y + seat;
     const pointer = this.input.activePointer;
+    const canvas = this.game.canvas;
     const inside =
       pointer.worldX >= 0 &&
       pointer.worldY >= 0 &&
       pointer.worldX <= VIEW_W &&
       pointer.worldY <= VIEW_H;
-    const manual = pointer.leftButtonDown() && inside;
-    const buttonFire = isFireHeld();
-    const angle = manual
-      ? Math.atan2(pointer.worldY - originY, pointer.worldX - originX)
-      : buttonFire
-        ? facing()
-        : Math.atan2(pointer.worldY - originY, pointer.worldX - originX);
+    const onBoard =
+      pointer.isDown && (pointer.downElement === canvas || pointer.target === canvas);
+    const aim = aimVector();
+    const shot = resolveAim({
+      riding: !!this.player.riding,
+      touchControls: document.body.classList.contains('touch-ui'),
+      aimX: aim.x,
+      aimY: aim.y,
+      aimOn: aim.on,
+      lastAim: this.aimAngle ?? 0,
+      moveFacing: facing(),
+      pointerInside: inside && !!pointer.event,
+      pointerDown: pointer.leftButtonDown(),
+      pointerOnBoard: onBoard,
+      pointerAngle: Math.atan2(pointer.worldY - originY, pointer.worldX - originX),
+      shootHeld: isFireHeld(),
+    });
+    this.aimAngle = shot.angle;
+    const angle = shot.angle;
     if (this.player.blaster) {
       this.player.blaster.rotation = angle;
       this.player.blaster.setPosition(Math.cos(angle) * 16, seat + Math.sin(angle) * 8);
@@ -479,7 +495,7 @@ export class GameScene extends Phaser.Scene {
     this.aim.lineTo(originX + Math.cos(angle) * 42, originY + Math.sin(angle) * 42);
     this.aim.strokePath();
 
-    if ((manual || buttonFire) && time >= this.nextShot) {
+    if (shot.fire && time >= this.nextShot) {
       this.shoot(angle);
       this.nextShot = time + 260;
     }

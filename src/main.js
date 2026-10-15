@@ -127,27 +127,37 @@ async function boot() {
   const helpWalls = document.getElementById('help-walls');
   const helpHearts = document.getElementById('help-hearts');
   const helpGoal = document.getElementById('help-goal');
+  const helpMove = document.getElementById('help-move');
+  const helpShoot = document.getElementById('help-shoot');
   const level1Help = {
     walls: helpWalls.textContent,
     hearts: helpHearts.textContent,
     goal: helpGoal.textContent,
+    move: helpMove.innerHTML,
+    shoot: helpShoot.innerHTML,
   };
   const level2Help = {
     walls: 'Blue walls make the maze. Shoot the red gate to open it. A red brick hides a bonus coin.',
     hearts:
       'You ride the rusty tank. It is a little slower than running. Armor takes 5 hits, then a monster costs a heart. Purple monsters still take 3 hits.',
     goal: 'Follow the coins to the blue flag.',
+    move: '<b>Move</b> with the left stick, WASD, or the arrow keys.',
+    shoot:
+      '<b>Aim</b> with the right stick. The barrel turns all the way around, including diagonals. Hold Shoot to fire that way. Let go and the barrel stays put.',
   };
   function showHelp(campaign) {
     const help = campaign === 2 ? level2Help : level1Help;
     helpWalls.textContent = help.walls;
     helpHearts.textContent = help.hearts;
     helpGoal.textContent = help.goal;
+    helpMove.innerHTML = help.move;
+    helpShoot.innerHTML = help.shoot;
   }
 
   window.addEventListener('bbb-mode', (event) => {
     const detail = typeof event.detail === 'string' ? { mode: event.detail, campaign: 0 } : event.detail;
     document.body.dataset.mode = detail.mode;
+    document.body.dataset.campaign = String(detail.campaign || 0);
     const pill = document.getElementById('mode-pill');
     if (detail.mode !== 'play') pill.textContent = 'Building';
     else if (detail.campaign === 2) pill.textContent = 'Level 2';

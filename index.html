@@ -91,8 +91,8 @@
           <div class="play-only play-help">
             <h2>How to play</h2>
             <ul>
-              <li><b>Move</b> with WASD, the arrow keys, or the stick.</li>
-              <li><b>Shoot</b> by holding the mouse or a finger toward a target, or hold Shoot to fire the way you are moving.</li>
+              <li id="help-move"><b>Move</b> with WASD, the arrow keys, or the stick.</li>
+              <li id="help-shoot"><b>Shoot</b> by holding the mouse or a finger toward a target, or hold Shoot to fire the way you are moving.</li>
             </ul>
             <p id="help-walls">Red walls break after 3 hits. Blue walls never break. The mad circle pops after 2 hits.</p>
             <p id="help-hearts">It starts slow and gets faster. Touching it costs one heart. At 0 hearts you pop back to Start.</p>
@@ -106,6 +106,9 @@
             <div id="touch-controls" class="play-only">
               <div id="stick" class="stick" role="application" aria-label="Move">
                 <div id="stick-knob" class="stick-knob"></div>
+              </div>
+              <div id="stick-aim" class="stick stick-aim" role="application" aria-label="Aim">
+                <div id="stick-aim-knob" class="stick-knob"></div>
               </div>
               <button type="button" id="btn-shoot" class="shoot-btn" aria-label="Shoot">Shoot</button>
             </div>

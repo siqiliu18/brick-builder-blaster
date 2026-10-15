@@ -1,5 +1,6 @@
 const held = new Set();
 let joy = { x: 0, y: 0, on: false };
+let aimJoy = { x: 0, y: 0, on: false };
 let fireHeld = false;
 let face = 0;
 
@@ -20,6 +21,7 @@ window.addEventListener('keyup', (event) => {
 window.addEventListener('blur', () => {
   held.clear();
   joy = { x: 0, y: 0, on: false };
+  aimJoy = { x: 0, y: 0, on: false };
   fireHeld = false;
 });
 
@@ -34,6 +36,14 @@ export function setStick(x, y, on) {
 
 export function stickVector() {
   return joy;
+}
+
+export function setAimStick(x, y, on) {
+  aimJoy = { x, y, on };
+}
+
+export function aimVector() {
+  return aimJoy;
 }
 
 export function setFireHeld(on) {

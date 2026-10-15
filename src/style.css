@@ -378,6 +378,36 @@ body.touch-ui[data-mode="play"] #touch-controls { display: block; }
   box-shadow: 0 3px 0 #7a120c;
 }
 
+.stick-aim {
+  display: none;
+  left: auto;
+  right: 20px;
+  top: auto;
+  bottom: 16px;
+  transform: none;
+  border-color: rgba(125, 211, 252, 0.95);
+}
+
+.stick-aim .stick-knob {
+  background: #7dd3fc;
+  box-shadow: 0 4px 0 #0369a1, inset 0 -4px 0 rgba(0, 0, 0, 0.15);
+}
+
+body.touch-ui[data-mode="play"][data-campaign="2"] .stick-aim {
+  display: block;
+}
+
+body.touch-ui[data-mode="play"][data-campaign="2"] .shoot-btn {
+  top: auto;
+  right: 30px;
+  bottom: 160px;
+  transform: none;
+}
+
+body.touch-ui[data-mode="play"][data-campaign="2"] .shoot-btn:active {
+  transform: translateY(3px);
+}
+
 .modal {
   position: absolute;
   inset: 0;
