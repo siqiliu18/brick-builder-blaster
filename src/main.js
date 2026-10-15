@@ -141,9 +141,8 @@ async function boot() {
     hearts:
       'You ride the rusty tank. It is a little slower than running. Armor takes 5 hits, then a monster costs a heart. Purple monsters still take 3 hits.',
     goal: 'Follow the coins to the blue flag.',
-    move: '<b>Move</b> with the left stick, WASD, or the arrow keys. The barrel turns the way you go, including diagonals.',
-    shoot:
-      '<b>Shoot</b> with Shoot or the mouse. Shots go the way you are moving. Let go of the stick and the barrel stays put.',
+    move: helpMove.innerHTML,
+    shoot: helpShoot.innerHTML,
   };
   function showHelp(campaign) {
     const help = campaign === 2 ? level2Help : level1Help;

@@ -1,4 +1,4 @@
-import { setAimStick, setFireHeld, setStick } from './input.js';
+import { setAimStick, setStick } from './input.js';
 
 function bindStick(base, knob, apply) {
   let activeId = null;
@@ -43,29 +43,6 @@ function bindStick(base, knob, apply) {
   base.addEventListener('pointercancel', end);
 }
 
-function bindShoot(button) {
-  let activeId = null;
-
-  function down(event) {
-    if (activeId != null) return;
-    activeId = event.pointerId;
-    button.setPointerCapture(event.pointerId);
-    event.preventDefault();
-    event.stopPropagation();
-    setFireHeld(true);
-  }
-
-  function up(event) {
-    if (activeId == null || event.pointerId !== activeId) return;
-    activeId = null;
-    setFireHeld(false);
-  }
-
-  button.addEventListener('pointerdown', down);
-  button.addEventListener('pointerup', up);
-  button.addEventListener('pointercancel', up);
-}
-
 function lockPageGestures() {
   const block = (event) => event.preventDefault();
   document.addEventListener('gesturestart', block);
@@ -90,8 +67,6 @@ export function installTouch() {
   const knob = document.getElementById('stick-knob');
   const aim = document.getElementById('stick-aim');
   const aimKnob = document.getElementById('stick-aim-knob');
-  const shoot = document.getElementById('btn-shoot');
   if (stick && knob) bindStick(stick, knob, setStick);
   if (aim && aimKnob) bindStick(aim, aimKnob, setAimStick);
-  if (shoot) bindShoot(shoot);
 }

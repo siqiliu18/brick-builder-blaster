@@ -14,7 +14,7 @@ import {
   summarize,
   tileCenter,
 } from './level.js';
-import { aimVector, isDown, isFireHeld, setFacing, stickVector } from './input.js';
+import { aimVector, isDown, setFacing, stickVector } from './input.js';
 import { resolveAim } from './aim.js';
 import {
   BRUTE_HP,
@@ -459,9 +459,6 @@ export class GameScene extends Phaser.Scene {
       pointer.isDown && (pointer.downElement === canvas || pointer.target === canvas);
     const aim = aimVector();
     const shot = resolveAim({
-      followMovement: !!this.player.riding,
-      moving,
-      moveAngle: Math.atan2(iy, ix),
       touchControls: document.body.classList.contains('touch-ui'),
       aimX: aim.x,
       aimY: aim.y,
@@ -471,7 +468,6 @@ export class GameScene extends Phaser.Scene {
       pointerDown: pointer.leftButtonDown(),
       pointerOnBoard: onBoard,
       pointerAngle: Math.atan2(pointer.worldY - originY, pointer.worldX - originX),
-      shootHeld: isFireHeld(),
     });
     this.aimAngle = shot.angle;
     const angle = shot.angle;
