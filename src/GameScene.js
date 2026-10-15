@@ -23,12 +23,16 @@ import {
   MAD_MIN_SPEED,
   PLAYER_HALF,
   PLAYER_SPEED,
+  TANK_DAMAGE,
+  TANK_HALF,
+  TANK_HP,
   chase,
   corridorHeading,
   madSpeed,
   moveBody,
   separateEnemies,
   stepBrute,
+  stepTank,
 } from './sim.js';
 import { buildTextures } from './textures.js';
 import { clearFx, flashScreen, popText, spawnBurst, updateFx } from './fx.js';
@@ -65,6 +69,7 @@ export class GameScene extends Phaser.Scene {
     this.enemies = [];
     this.coins = [];
     this.bullets = [];
+    this.shells = [];
     this.player = null;
     this.grid = null;
     this.health = 3;
@@ -130,7 +135,7 @@ export class GameScene extends Phaser.Scene {
       if (hp === 2) return 'brick1';
       return 'brick0';
     }
-    return { W: 'solid', E: 'enemy', M: 'brute', C: 'coin', S: 'start', F: 'finish' }[ch];
+    return { W: 'solid', E: 'enemy', M: 'brute', T: 'tank', C: 'coin', S: 'start', F: 'finish' }[ch];
   }
 
   renderCell(tx, ty) {
@@ -141,7 +146,7 @@ export class GameScene extends Phaser.Scene {
       this.sprites[ty][tx] = null;
     }
     let ch = this.mode === 'play' ? this.grid[ty][tx] : getRows()[ty][tx];
-    if (this.mode === 'play' && (ch === 'E' || ch === 'C' || ch === 'M')) ch = '.';
+    if (this.mode === 'play' && (ch === 'E' || ch === 'C' || ch === 'M' || ch === 'T')) ch = '.';
     if (!ch || ch === '.') return;
     const img = this.add.image(tx * TILE, ty * TILE, this.textureFor(ch, tx, ty));
     img.setOrigin(0, 0).setDisplaySize(TILE, TILE).setDepth(10 + (ty + 1) * TILE);
@@ -268,6 +273,7 @@ export class GameScene extends Phaser.Scene {
     this.enemies = [
       ...findCells(rows, 'E').map((cell) => this.makeEnemy(cell, 'mad')),
       ...findCells(rows, 'M').map((cell) => this.makeEnemy(cell, 'brute')),
+      ...findCells(rows, 'T').map((cell) => this.makeEnemy(cell, 'tank')),
     ];
     this.enemyTotal = this.enemies.length;
     this.coins = findCells(rows, 'C').map((cell) => this.makeCoin(cell));
@@ -316,6 +322,8 @@ export class GameScene extends Phaser.Scene {
     this.coins = [];
     for (const bullet of this.bullets) bullet.sprite.destroy();
     this.bullets = [];
+    for (const shell of this.shells) shell.sprite?.destroy();
+    this.shells = [];
     clearFx(this);
   }
 
@@ -332,12 +340,13 @@ export class GameScene extends Phaser.Scene {
 
   makeEnemy(cell, kind) {
     const brute = kind === 'brute';
+    const tank = kind === 'tank';
     const { x, y } = tileCenter(cell.x, cell.y);
     const container = this.add.container(x, y).setDepth(10 + y);
-    const shadow = this.add.image(0, 16, 'shadow').setDisplaySize(brute ? 40 : 32, 12);
+    const shadow = this.add.image(0, tank ? 18 : 16, 'shadow').setDisplaySize(tank ? 44 : brute ? 40 : 32, 12);
     const body = this.add
-      .image(0, 0, brute ? 'brute' : 'enemy')
-      .setDisplaySize(brute ? 46 : 38, brute ? 46 : 38);
+      .image(0, 0, tank ? 'tank' : brute ? 'brute' : 'enemy')
+      .setDisplaySize(tank ? 54 : brute ? 46 : 38, tank ? 54 : brute ? 46 : 38);
     container.add([shadow, body]);
     container.bodySprite = body;
     return {
@@ -345,13 +354,17 @@ export class GameScene extends Phaser.Scene {
       y,
       homeX: x,
       homeY: y,
-      hp: brute ? BRUTE_HP : 2,
+      hp: tank ? TANK_HP : brute ? BRUTE_HP : 2,
       alive: true,
       sprite: container,
       speed: brute ? BRUTE_PATROL_SPEED : MAD_MIN_SPEED,
-      kind: brute ? 'brute' : 'mad',
+      kind: tank ? 'tank' : brute ? 'brute' : 'mad',
       heading: brute ? corridorHeading(this.grid, x, y) : 0,
       aggro: 0,
+      phase: (cell.x + cell.y) * 0.4,
+      cooldown: tank ? 1.4 : 0,
+      windup: 0,
+      smoke: 0.3,
     };
   }
 
@@ -392,6 +405,7 @@ export class GameScene extends Phaser.Scene {
     this.updatePlayer(dt, time);
     this.updateEnemies(dt);
     this.updateBullets(dt);
+    this.updateShells(dt);
     this.updatePlayCoins(time);
     this.checkHurt();
     this.checkWin();
@@ -479,7 +493,8 @@ export class GameScene extends Phaser.Scene {
     const chasing = !this.respawning && this.player.visible;
     for (const enemy of this.enemies) {
       if (!enemy.alive) continue;
-      if (enemy.kind === 'brute') this.updateBrute(enemy, dt, chasing);
+      if (enemy.kind === 'tank') this.updateTank(enemy, dt, chasing);
+      else if (enemy.kind === 'brute') this.updateBrute(enemy, dt, chasing);
       else this.updateMad(enemy, dt);
     }
     separateEnemies(this.enemies, ENEMY_HALF, this.grid);
@@ -508,6 +523,88 @@ export class GameScene extends Phaser.Scene {
     enemy.sprite.bodySprite.setAngle(wobble);
   }
 
+  updateTank(enemy, dt, chasing) {
+    const busy = this.shells.some((shell) => shell.alive && shell.owner === enemy);
+    const { shot, face } = stepTank(enemy, this.player, dt, TANK_HALF, this.grid, chasing, busy);
+    enemy.sprite.setPosition(enemy.x, enemy.y);
+    enemy.sprite.setDepth(10 + enemy.y);
+    enemy.sprite.bodySprite.setRotation(face + Math.PI / 2);
+    if (enemy.windup > 0) enemy.sprite.bodySprite.setTint(0xffc9a0);
+    else enemy.sprite.bodySprite.clearTint();
+    enemy.smoke = (enemy.smoke || 0) - dt;
+    if (enemy.smoke <= 0) {
+      enemy.smoke = 0.85;
+      const puff = this.add.image(enemy.x + 10, enemy.y - 8, 'smoke').setDepth(20).setAlpha(0.5).setScale(0.55);
+      this.tweens.add({
+        targets: puff,
+        y: puff.y - 18,
+        alpha: 0,
+        scale: 1.05,
+        duration: 680,
+        onComplete: () => puff.destroy(),
+      });
+    }
+    if (shot) this.fireShell(enemy, shot);
+  }
+
+  fireShell(enemy, shot) {
+    const sprite = this.add.image(shot.x, shot.y, 'tankShot').setDepth(16).setDisplaySize(16, 16);
+    this.shells.push({
+      x: shot.x,
+      y: shot.y,
+      vx: shot.vx,
+      vy: shot.vy,
+      damage: TANK_DAMAGE,
+      life: 2.4,
+      alive: true,
+      owner: enemy,
+      sprite,
+    });
+  }
+
+  updateShells(dt) {
+    const keep = [];
+    for (const shell of this.shells) {
+      if (!shell.alive) {
+        if (shell.sprite?.active) shell.sprite.destroy();
+        continue;
+      }
+      const beforeX = shell.x;
+      const beforeY = shell.y;
+      moveBody(shell, shell.vx, shell.vy, dt, 6, this.grid);
+      shell.life -= dt;
+      shell.sprite.setPosition(shell.x, shell.y);
+      shell.sprite.rotation += dt * 4;
+      const moved = Math.hypot(shell.x - beforeX, shell.y - beforeY);
+      const stuck = moved < Math.hypot(shell.vx, shell.vy) * dt * 0.35;
+      const player = this.player;
+      const hitPlayer =
+        player &&
+        player.visible &&
+        !this.respawning &&
+        !this.won &&
+        Math.hypot(player.x - shell.x, player.y - shell.y) < PLAYER_HALF + 8;
+      if (stuck || shell.life <= 0 || hitPlayer) {
+        shell.alive = false;
+        if (shell.sprite?.active) shell.sprite.destroy();
+        if (hitPlayer && this.invuln <= 0) {
+          this.hurt(shell, TANK_DAMAGE);
+          if (this.respawning) return;
+        } else if (!hitPlayer) {
+          spawnBurst(this, shell.x, shell.y, {
+            count: 3,
+            colors: [0x8a4a28, 0x1c1612, 0xc4622d],
+            power: 80,
+            life: 0.3,
+          });
+        }
+        continue;
+      }
+      keep.push(shell);
+    }
+    this.shells = keep;
+  }
+
   updateBullets(dt) {
     const keep = [];
     for (const bullet of this.bullets) {
@@ -529,6 +626,20 @@ export class GameScene extends Phaser.Scene {
         this.hitEnemy(enemy);
         return false;
       }
+      const shell = this.shells.find(
+        (item) => item.alive && Math.hypot(item.x - bullet.x, item.y - bullet.y) < 14,
+      );
+      if (shell) {
+        shell.alive = false;
+        shell.sprite.destroy();
+        spawnBurst(this, shell.x, shell.y, {
+          count: 3,
+          colors: [0xc4622d, 0xffe14a],
+          power: 90,
+          life: 0.25,
+        });
+        return false;
+      }
       const tx = Math.floor(bullet.x / TILE);
       const ty = Math.floor(bullet.y / TILE);
       if (!this.inBounds(tx, ty)) return false;
@@ -544,7 +655,7 @@ export class GameScene extends Phaser.Scene {
   enemyAt(x, y) {
     for (const enemy of this.enemies) {
       if (!enemy.alive) continue;
-      const radius = enemy.kind === 'brute' ? 20 : 18;
+      const radius = enemy.kind === 'tank' ? 22 : enemy.kind === 'brute' ? 20 : 18;
       if (Math.hypot(enemy.x - x, enemy.y - y) < radius) return enemy;
     }
     return null;
@@ -617,6 +728,10 @@ export class GameScene extends Phaser.Scene {
     if (!enemy.alive) return;
     if (enemy.kind === 'brute') {
       this.hitBrute(enemy);
+      return;
+    }
+    if (enemy.kind === 'tank') {
+      this.hitTank(enemy);
       return;
     }
     enemy.hp -= 1;
@@ -693,6 +808,46 @@ export class GameScene extends Phaser.Scene {
     });
   }
 
+  hitTank(enemy) {
+    enemy.hp -= 1;
+    if (enemy.hp <= 0) {
+      enemy.alive = false;
+      enemy.windup = 0;
+      const x = enemy.x;
+      const y = enemy.y;
+      enemy.sprite.destroy();
+      this.smashed += 1;
+      this.freeze = 0.08;
+      spawnBurst(this, x, y, {
+        count: 14,
+        colors: [0x8a4a28, 0xc4622d, 0x6e3b22, 0x1c1612, 0xffe14a, 0xffffff],
+        power: 360,
+        shake: 0.014,
+        ring: true,
+        ringColor: 0xc4622d,
+        word: 'SMASH!',
+        wordColor: '#e7b089',
+      });
+      flashScreen(this, 0xffffff, 0.22);
+      this.emitHud(true);
+      return;
+    }
+    const texture = enemy.hp <= 1 ? 'tankBreak' : enemy.hp <= 3 ? 'tankCrack' : 'tank';
+    enemy.sprite.bodySprite.setTexture(texture);
+    enemy.sprite.bodySprite.setDisplaySize(54, 54);
+    enemy.sprite.bodySprite.setTintFill(0xffffff);
+    this.time.delayedCall(80, () => {
+      if (enemy.alive && enemy.sprite.bodySprite?.active) enemy.sprite.bodySprite.clearTint();
+    });
+    spawnBurst(this, enemy.x, enemy.y, {
+      count: 5,
+      colors: [0xc4622d, 0x1c1612, 0xffe14a],
+      power: 160,
+      life: 0.4,
+      shake: 0.003,
+    });
+  }
+
   updatePlayCoins(time) {
     const wave = time / 200;
     for (const coin of this.coins) {
@@ -718,16 +873,16 @@ export class GameScene extends Phaser.Scene {
     if (!this.player || this.respawning || this.invuln > 0 || this.won) return;
     for (const enemy of this.enemies) {
       if (!enemy.alive) continue;
-      const reach = enemy.kind === 'brute' ? 24 : 22;
+      const reach = enemy.kind === 'mad' ? 22 : 24;
       if (Math.hypot(enemy.x - this.player.x, enemy.y - this.player.y) <= reach) {
-        this.hurt(enemy);
+        this.hurt(enemy, enemy.kind === 'tank' ? TANK_DAMAGE : 1);
         return;
       }
     }
   }
 
-  hurt(enemy) {
-    this.health -= 1;
+  hurt(enemy, damage = 1) {
+    this.health -= damage;
     this.invuln = 1.15;
     const angle = Math.atan2(this.player.y - enemy.y, this.player.x - enemy.x);
     this.knockX = Math.cos(angle) * 280;
@@ -760,12 +915,17 @@ export class GameScene extends Phaser.Scene {
     this.knockX = 0;
     this.knockY = 0;
     for (const enemy of this.enemies) {
-      if (!enemy.alive || enemy.kind !== 'brute') continue;
+      if (!enemy.alive || (enemy.kind !== 'brute' && enemy.kind !== 'tank')) continue;
       enemy.x = enemy.homeX;
       enemy.y = enemy.homeY;
       enemy.aggro = 0;
+      enemy.windup = 0;
+      enemy.cooldown = enemy.kind === 'tank' ? 1.4 : 0;
+      if (enemy.kind === 'tank') enemy.sprite.bodySprite.clearTint();
       enemy.sprite.setPosition(enemy.x, enemy.y);
     }
+    for (const shell of this.shells) if (shell.sprite?.active) shell.sprite.destroy();
+    this.shells = [];
     this.emitHud(true);
     const gen = this.lifeGen;
     this.time.delayedCall(700, () => {

@@ -71,7 +71,7 @@ function refreshStats() {
   document.getElementById('stat-line').textContent = [
     `Brick walls: ${counts.B}`,
     `Solid walls: ${counts.W}`,
-    `Monsters: ${counts.E + counts.M}`,
+    `Monsters: ${counts.E + counts.M + counts.T}`,
     `Coins: ${counts.C}`,
     `Start: ${counts.S === 1 ? 'yes' : 'no'}`,
     `Finish: ${counts.F === 1 ? 'yes' : 'no'}`,
@@ -117,7 +117,8 @@ async function boot() {
   };
   const level2Help = {
     walls: 'Blue walls make the maze. Shoot the red gate to open it. A red brick hides a bonus coin.',
-    hearts: 'Purple monsters take 3 hits. They chase when they see you. You run faster, so back up and shoot.',
+    hearts:
+      'Purple monsters take 3 hits. The rusty tank takes 5 and shoots slowly. A bump or a shot still costs 1 heart.',
     goal: 'Follow the coins to the blue flag.',
   };
   function showHelp(campaign) {
@@ -204,7 +205,7 @@ async function boot() {
       'Load it',
       () => {
         replaceLevel(level2());
-        toast('Level 2 loaded. Purple monsters take 3 hits.');
+        toast('Level 2 loaded. The rusty tank takes 5 hits and shoots slowly.');
       },
     );
   });

@@ -21,12 +21,19 @@ import {
   MAD_MIN_SPEED,
   PLAYER_HALF,
   PLAYER_SPEED,
+  TANK_CHASE_SPEED,
+  TANK_DAMAGE,
+  TANK_HALF,
+  TANK_HP,
+  TANK_SHOT_SPEED,
   corridorHeading,
   madSpeed,
   moveBody,
   seesTarget,
   stepBrute,
+  stepTank,
 } from '../src/sim.js';
+import { PLAYER_COLORS, TANK_COLOR } from '../src/textures.js';
 
 function walk(rows, { bricksOpen = false } = {}) {
   const blocked = new Set(bricksOpen ? ['W'] : ['W', 'B']);
@@ -75,7 +82,31 @@ test('Level 2 is a maze with a red gate, a coin trail, and three separated brute
   assert.equal(counts.F, 1);
   assert.equal(counts.E, 0);
   assert.equal(counts.M, 3);
+  assert.equal(counts.T, 1);
   assert.equal(counts.B, 3);
+  assert.deepEqual(findCells(level, 'T'), [{ x: 4, y: 11 }]);
+  assert.deepEqual(
+    findCells(level, 'M').map((cell) => [cell.x, cell.y]),
+    [
+      [14, 6],
+      [8, 8],
+      [16, 13],
+    ],
+  );
+  assert.equal(level[1], 'W....WWWWWWWWWWWWWWW');
+  assert.equal(level[2], 'W.SC..CWWWWWWWWWWWWW');
+  assert.equal(level[3], 'W....WWWWWWWWWWWWWWW');
+  assert.equal(level[4], 'WBBWWWWWWWWWWWWWWWWW');
+  assert.equal(summarize(jaspersLevel()).T, 0);
+  assert.equal(summarize(jaspersLevel()).M, 0);
+  assert.equal(TANK_HP, 5);
+  assert.ok(TANK_HP > BRUTE_HP);
+  assert.ok(TANK_CHASE_SPEED < BRUTE_CHASE_SPEED);
+  assert.ok(TANK_CHASE_SPEED < PLAYER_SPEED);
+  assert.ok(TANK_SHOT_SPEED < PLAYER_SPEED);
+  assert.equal(TANK_DAMAGE, 1);
+  assert.equal(TANK_COLOR, '#8a4a28');
+  assert.equal(PLAYER_COLORS.hat, '#6a7178');
   assert.ok(counts.C >= 7);
   assert.equal(walk(level, { bricksOpen: false }), null);
   const path = walk(level, { bricksOpen: true });
@@ -116,6 +147,30 @@ test('Level 2 survives a share link', async () => {
   assert.deepEqual(await decodeLevel(code), level);
 });
 
+test('a tank shot deals one heart, the same as a brute touch', () => {
+  const rows = level2();
+  const grid = rows.map((row) => row.split(''));
+  const home = tileCenter(4, 11);
+  const enemy = {
+    x: home.x,
+    y: home.y,
+    homeX: home.x,
+    homeY: home.y,
+    phase: 0,
+    cooldown: 0,
+    windup: 0,
+  };
+  const target = { x: home.x + 140, y: home.y };
+  let shot = null;
+  for (let i = 0; i < 120 && !shot; i++) {
+    shot = stepTank(enemy, target, 1 / 60, TANK_HALF, grid, true, false).shot;
+  }
+  assert.ok(shot, 'the tank should fire when it can see the hero');
+  assert.equal(shot.damage, 1);
+  assert.equal(shot.damage, TANK_DAMAGE);
+  assert.ok(Math.hypot(shot.vx, shot.vy) < PLAYER_SPEED);
+});
+
 test('a careful kid can clear Level 2', () => {
   const rows = level2();
   const grid = rows.map((row) => row.split(''));
@@ -123,20 +178,39 @@ test('a careful kid can clear Level 2', () => {
   const startCell = findCells(rows, 'S')[0];
   const spawn = tileCenter(startCell.x, startCell.y);
   const player = { x: spawn.x, y: spawn.y };
-  const monsters = findCells(rows, 'M').map((cell) => {
-    const home = tileCenter(cell.x, cell.y);
-    return {
-      x: home.x,
-      y: home.y,
-      homeX: home.x,
-      homeY: home.y,
-      hp: BRUTE_HP,
-      alive: true,
-      heading: corridorHeading(grid, home.x, home.y),
-      aggro: 0,
-      speed: 0,
-    };
-  });
+  const monsters = [
+    ...findCells(rows, 'M').map((cell) => {
+      const home = tileCenter(cell.x, cell.y);
+      return {
+        kind: 'brute',
+        x: home.x,
+        y: home.y,
+        homeX: home.x,
+        homeY: home.y,
+        hp: BRUTE_HP,
+        alive: true,
+        heading: corridorHeading(grid, home.x, home.y),
+        aggro: 0,
+        speed: 0,
+      };
+    }),
+    ...findCells(rows, 'T').map((cell) => {
+      const home = tileCenter(cell.x, cell.y);
+      return {
+        kind: 'tank',
+        x: home.x,
+        y: home.y,
+        homeX: home.x,
+        homeY: home.y,
+        hp: TANK_HP,
+        alive: true,
+        phase: 0,
+        cooldown: 1.4,
+        windup: 0,
+      };
+    }),
+  ];
+  const shells = [];
   let health = 3;
   let invuln = 0;
   let nextShot = 0;
@@ -253,7 +327,16 @@ test('a careful kid can clear Level 2', () => {
 
     for (const enemy of monsters) {
       if (!enemy.alive) continue;
-      stepBrute(enemy, player, dt, ENEMY_HALF, grid, health > 0);
+      if (enemy.kind === 'tank') {
+        const busy = shells.some((shell) => shell.alive && shell.owner === enemy);
+        const result = stepTank(enemy, player, dt, TANK_HALF, grid, health > 0, busy);
+        if (result.shot) {
+          assert.equal(result.shot.damage, TANK_DAMAGE);
+          shells.push({ ...result.shot, life: 2.4, alive: true, owner: enemy });
+        }
+      } else {
+        stepBrute(enemy, player, dt, ENEMY_HALF, grid, health > 0);
+      }
     }
 
     const threat = nearestThreat();
@@ -295,7 +378,18 @@ test('a careful kid can clear Level 2', () => {
       for (let i = 0; i < steps && alive; i++) {
         bullet.x += (bullet.vx * dt) / steps;
         bullet.y += (bullet.vy * dt) / steps;
-        const hit = monsters.find((enemy) => enemy.alive && Math.hypot(enemy.x - bullet.x, enemy.y - bullet.y) < 20);
+        const radiusOf = (enemy) => (enemy.kind === 'tank' ? 22 : 20);
+        const hit = monsters.find(
+          (enemy) => enemy.alive && Math.hypot(enemy.x - bullet.x, enemy.y - bullet.y) < radiusOf(enemy),
+        );
+        const popped = shells.find(
+          (shell) => shell.alive && Math.hypot(shell.x - bullet.x, shell.y - bullet.y) < 14,
+        );
+        if (popped) {
+          popped.alive = false;
+          alive = false;
+          break;
+        }
         if (hit) {
           hit.hp -= 1;
           if (hit.hp <= 0) hit.alive = false;
@@ -319,33 +413,60 @@ test('a careful kid can clear Level 2', () => {
     bullets.length = 0;
     bullets.push(...keep);
 
+    const playGrid = grid.map((row, y) => row.map((ch, x) => (ch === 'B' && brickHp[y][x] <= 0 ? '.' : ch)));
+    for (const shell of shells) {
+      if (!shell.alive) continue;
+      const beforeX = shell.x;
+      const beforeY = shell.y;
+      moveBody(shell, shell.vx, shell.vy, dt, 6, playGrid);
+      shell.life -= dt;
+      const moved = Math.hypot(shell.x - beforeX, shell.y - beforeY);
+      const stuck = moved < Math.hypot(shell.vx, shell.vy) * dt * 0.35;
+      const hitPlayer = Math.hypot(shell.x - player.x, shell.y - player.y) < PLAYER_HALF + 8;
+      if (stuck || shell.life <= 0 || hitPlayer) shell.alive = false;
+      if (hitPlayer && invuln <= 0) {
+        assert.equal(shell.damage, 1);
+        health -= shell.damage;
+        invuln = 1.15;
+        const angle = Math.atan2(player.y - shell.y, player.x - shell.x);
+        knockedX = Math.cos(angle) * 280;
+        knockedY = Math.sin(angle) * 280;
+      }
+    }
+    for (let i = shells.length - 1; i >= 0; i--) if (!shells[i].alive) shells.splice(i, 1);
+
     if (invuln > 0) invuln -= dt;
     else {
       for (const enemy of monsters) {
         if (!enemy.alive) continue;
         if (Math.hypot(enemy.x - player.x, enemy.y - player.y) <= 24) {
-          health -= 1;
+          const damage = enemy.kind === 'tank' ? TANK_DAMAGE : 1;
+          assert.equal(damage, 1);
+          health -= damage;
           invuln = 1.15;
           const angle = Math.atan2(player.y - enemy.y, player.x - enemy.x);
           knockedX = Math.cos(angle) * 280;
           knockedY = Math.sin(angle) * 280;
-          if (health <= 0) {
-            deaths += 1;
-            player.x = spawn.x;
-            player.y = spawn.y;
-            knockedX = 0;
-            knockedY = 0;
-            health = 3;
-            invuln = 1.5;
-            for (const other of monsters) {
-              if (!other.alive) continue;
-              other.x = other.homeX;
-              other.y = other.homeY;
-              other.aggro = 0;
-            }
-          }
           break;
         }
+      }
+    }
+    if (health <= 0) {
+      deaths += 1;
+      player.x = spawn.x;
+      player.y = spawn.y;
+      knockedX = 0;
+      knockedY = 0;
+      health = 3;
+      invuln = 1.5;
+      shells.length = 0;
+      for (const other of monsters) {
+        if (!other.alive) continue;
+        other.x = other.homeX;
+        other.y = other.homeY;
+        other.aggro = 0;
+        other.windup = 0;
+        if (other.kind === 'tank') other.cooldown = 1.4;
       }
     }
   }
