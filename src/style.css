@@ -128,6 +128,19 @@ h2 { margin: 0 0 4px; font-size: 16px; }
 
 .heart.empty { fill: #5c6b7a; filter: none; }
 
+.armor { display: flex; gap: 3px; align-items: center; }
+.armor.hidden { display: none; }
+
+.plate {
+  width: 14px;
+  height: 10px;
+  border-radius: 2px;
+  background: #8a4a28;
+  box-shadow: inset 0 -2px 0 #3a2a22;
+}
+
+.plate.empty { background: #5c6b7a; box-shadow: none; }
+
 #layout {
   flex: 1;
   min-height: 0;

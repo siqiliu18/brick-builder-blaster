@@ -23,19 +23,17 @@ import {
   MAD_MIN_SPEED,
   PLAYER_HALF,
   PLAYER_SPEED,
-  TANK_DAMAGE,
-  TANK_HALF,
-  TANK_HP,
-  riderMuzzle,
+  PLAYER_TANK_SPEED,
+  TANK_ARMOR,
+  absorbHit,
   chase,
   corridorHeading,
   madSpeed,
   moveBody,
   separateEnemies,
   stepBrute,
-  stepTank,
 } from './sim.js';
-import { RIDER_SEAT_Y, RIDER_SIZE, buildTextures } from './textures.js';
+import { buildTextures } from './textures.js';
 import { clearFx, flashScreen, popText, spawnBurst, updateFx } from './fx.js';
 
 const DRAG_TOOLS = new Set(['B', 'W']);
@@ -70,10 +68,10 @@ export class GameScene extends Phaser.Scene {
     this.enemies = [];
     this.coins = [];
     this.bullets = [];
-    this.shells = [];
     this.player = null;
     this.grid = null;
     this.health = 3;
+    this.armor = 0;
     this.invuln = 0;
     this.knockX = 0;
     this.knockY = 0;
@@ -251,6 +249,7 @@ export class GameScene extends Phaser.Scene {
     this.lifeGen += 1;
     this.freeze = 0;
     this.health = 3;
+    this.armor = this.campaign === 2 ? TANK_ARMOR : 0;
     this.invuln = 0;
     this.knockX = 0;
     this.knockY = 0;
@@ -274,7 +273,6 @@ export class GameScene extends Phaser.Scene {
     this.enemies = [
       ...findCells(rows, 'E').map((cell) => this.makeEnemy(cell, 'mad')),
       ...findCells(rows, 'M').map((cell) => this.makeEnemy(cell, 'brute')),
-      ...findCells(rows, 'T').map((cell) => this.makeEnemy(cell, 'tank')),
     ];
     this.enemyTotal = this.enemies.length;
     this.coins = findCells(rows, 'C').map((cell) => this.makeCoin(cell));
@@ -323,55 +321,56 @@ export class GameScene extends Phaser.Scene {
     this.coins = [];
     for (const bullet of this.bullets) bullet.sprite.destroy();
     this.bullets = [];
-    for (const shell of this.shells) shell.sprite?.destroy();
-    this.shells = [];
     clearFx(this);
   }
 
   makePlayer(x, y) {
+    const riding = this.campaign === 2;
+    const seatY = riding ? -18 : 0;
     const container = this.add.container(x, y).setDepth(10 + y);
-    const shadow = this.add.image(0, 16, 'shadow').setDisplaySize(34, 12);
-    const body = this.add.image(0, 0, 'player').setDisplaySize(40, 40);
-    const blaster = this.add.image(18, 0, 'blaster').setDisplaySize(16, 8).setOrigin(0, 0.5);
-    container.add([shadow, body, blaster]);
+    const shadow = this.add.image(0, riding ? 22 : 16, 'shadow').setDisplaySize(riding ? 50 : 34, 12);
+    const parts = [shadow];
+    if (riding) {
+      const hull = this.add.image(0, 8, 'tankHull').setDisplaySize(58, 58);
+      container.hull = hull;
+      parts.push(hull);
+    }
+    const body = this.add.image(0, seatY, 'player').setDisplaySize(riding ? 36 : 40, riding ? 36 : 40);
+    const blaster = this.add
+      .image(riding ? 14 : 18, seatY, 'blaster')
+      .setDisplaySize(16, 8)
+      .setOrigin(0, 0.5);
+    parts.push(body, blaster);
+    container.add(parts);
     container.bodySprite = body;
     container.blaster = blaster;
+    container.riding = riding;
+    container.seatY = seatY;
     return container;
   }
 
   makeEnemy(cell, kind) {
     const brute = kind === 'brute';
-    const tank = kind === 'tank';
     const { x, y } = tileCenter(cell.x, cell.y);
     const container = this.add.container(x, y).setDepth(10 + y);
-    const shadow = this.add.image(0, tank ? 18 : 16, 'shadow').setDisplaySize(tank ? 44 : brute ? 40 : 32, 12);
+    const shadow = this.add.image(0, 16, 'shadow').setDisplaySize(brute ? 40 : 32, 12);
     const body = this.add
-      .image(0, 0, tank ? 'tankHull' : brute ? 'brute' : 'enemy')
-      .setDisplaySize(tank ? 54 : brute ? 46 : 38, tank ? 54 : brute ? 46 : 38);
-    const parts = [shadow, body];
-    if (tank) {
-      const rider = this.add.image(0, RIDER_SEAT_Y, 'tankRider').setDisplaySize(RIDER_SIZE, RIDER_SIZE);
-      parts.push(rider);
-      container.rider = rider;
-    }
-    container.add(parts);
+      .image(0, 0, brute ? 'brute' : 'enemy')
+      .setDisplaySize(brute ? 46 : 38, brute ? 46 : 38);
+    container.add([shadow, body]);
     container.bodySprite = body;
     return {
       x,
       y,
       homeX: x,
       homeY: y,
-      hp: tank ? TANK_HP : brute ? BRUTE_HP : 2,
+      hp: brute ? BRUTE_HP : 2,
       alive: true,
       sprite: container,
       speed: brute ? BRUTE_PATROL_SPEED : MAD_MIN_SPEED,
-      kind: tank ? 'tank' : brute ? 'brute' : 'mad',
+      kind: brute ? 'brute' : 'mad',
       heading: brute ? corridorHeading(this.grid, x, y) : 0,
       aggro: 0,
-      phase: (cell.x + cell.y) * 0.4,
-      cooldown: tank ? 1.4 : 0,
-      windup: 0,
-      smoke: 0.3,
     };
   }
 
@@ -412,7 +411,6 @@ export class GameScene extends Phaser.Scene {
     this.updatePlayer(dt, time);
     this.updateEnemies(dt);
     this.updateBullets(dt);
-    this.updateShells(dt);
     this.updatePlayCoins(time);
     this.checkHurt();
     this.checkWin();
@@ -437,13 +435,17 @@ export class GameScene extends Phaser.Scene {
     const moving = Math.hypot(ix, iy) > 0.05;
     if (moving) setFacing(Math.atan2(iy, ix));
     const len = Math.hypot(ix, iy) || 1;
-    const vx = (moving ? (ix / len) * PLAYER_SPEED : 0) + this.knockX;
-    const vy = (moving ? (iy / len) * PLAYER_SPEED : 0) + this.knockY;
+    const speed = this.player.riding ? PLAYER_TANK_SPEED : PLAYER_SPEED;
+    const vx = (moving ? (ix / len) * speed : 0) + this.knockX;
+    const vy = (moving ? (iy / len) * speed : 0) + this.knockY;
     moveBody(this.player, vx, vy, dt, PLAYER_HALF, this.grid);
     this.knockX *= Math.exp(-10 * dt);
     this.knockY *= Math.exp(-10 * dt);
     this.player.setDepth(10 + this.player.y);
 
+    const seat = this.player.seatY || 0;
+    const originX = this.player.x;
+    const originY = this.player.y + seat;
     const pointer = this.input.activePointer;
     const inside =
       pointer.worldX >= 0 &&
@@ -453,14 +455,15 @@ export class GameScene extends Phaser.Scene {
     const manual = pointer.leftButtonDown() && inside;
     const buttonFire = isFireHeld();
     const angle = manual
-      ? Math.atan2(pointer.worldY - this.player.y, pointer.worldX - this.player.x)
+      ? Math.atan2(pointer.worldY - originY, pointer.worldX - originX)
       : buttonFire
         ? facing()
-        : Math.atan2(pointer.worldY - this.player.y, pointer.worldX - this.player.x);
+        : Math.atan2(pointer.worldY - originY, pointer.worldX - originX);
     this.player.blaster.rotation = angle;
-    this.player.blaster.setPosition(Math.cos(angle) * 18, Math.sin(angle) * 18);
+    this.player.blaster.setPosition(Math.cos(angle) * 16, seat + Math.sin(angle) * 8);
+    if (this.player.hull && moving) this.player.hull.rotation = Math.atan2(iy, ix) + Math.PI / 2;
     if (moving) this.bob += dt * 14;
-    this.player.bodySprite.y = Math.sin(this.bob) * (moving ? 1.2 : 0.25);
+    this.player.bodySprite.y = seat + Math.sin(this.bob) * (moving ? 1.2 : 0.25);
     if (this.invuln > 0) {
       this.invuln -= dt;
       this.player.alpha = Math.sin(time / 40) > 0 ? 1 : 0.35;
@@ -469,8 +472,8 @@ export class GameScene extends Phaser.Scene {
     this.aim.clear();
     this.aim.lineStyle(3, 0xffe14a, 0.95);
     this.aim.beginPath();
-    this.aim.moveTo(this.player.x + Math.cos(angle) * 18, this.player.y + Math.sin(angle) * 18);
-    this.aim.lineTo(this.player.x + Math.cos(angle) * 42, this.player.y + Math.sin(angle) * 42);
+    this.aim.moveTo(originX + Math.cos(angle) * 18, originY + Math.sin(angle) * 18);
+    this.aim.lineTo(originX + Math.cos(angle) * 42, originY + Math.sin(angle) * 42);
     this.aim.strokePath();
 
     if ((manual || buttonFire) && time >= this.nextShot) {
@@ -480,8 +483,9 @@ export class GameScene extends Phaser.Scene {
   }
 
   shoot(angle) {
-    const x = this.player.x + Math.cos(angle) * 26;
-    const y = this.player.y + Math.sin(angle) * 26;
+    const seat = this.player.seatY || 0;
+    const x = this.player.x + Math.cos(angle) * 24;
+    const y = this.player.y + seat + Math.sin(angle) * 14;
     const speed = 560;
     const sprite = this.add.image(x, y, 'bullet').setDepth(3200).setRotation(angle);
     this.bullets.push({ x, y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, sprite });
@@ -500,8 +504,7 @@ export class GameScene extends Phaser.Scene {
     const chasing = !this.respawning && this.player.visible;
     for (const enemy of this.enemies) {
       if (!enemy.alive) continue;
-      if (enemy.kind === 'tank') this.updateTank(enemy, dt, chasing);
-      else if (enemy.kind === 'brute') this.updateBrute(enemy, dt, chasing);
+      if (enemy.kind === 'brute') this.updateBrute(enemy, dt, chasing);
       else this.updateMad(enemy, dt);
     }
     separateEnemies(this.enemies, ENEMY_HALF, this.grid);
@@ -530,99 +533,6 @@ export class GameScene extends Phaser.Scene {
     enemy.sprite.bodySprite.setAngle(wobble);
   }
 
-  updateTank(enemy, dt, chasing) {
-    const busy = this.shells.some((shell) => shell.alive && shell.owner === enemy);
-    const { shot, face, aim } = stepTank(enemy, this.player, dt, TANK_HALF, this.grid, chasing, busy);
-    enemy.sprite.setPosition(enemy.x, enemy.y);
-    enemy.sprite.setDepth(10 + enemy.y);
-    enemy.sprite.bodySprite.setRotation(face + Math.PI / 2);
-    enemy.sprite.rider.setRotation(aim + Math.PI / 2);
-    if (enemy.windup > 0) enemy.sprite.rider.setTint(0xffc9a0);
-    else enemy.sprite.rider.clearTint();
-    enemy.smoke = (enemy.smoke || 0) - dt;
-    if (enemy.smoke <= 0) {
-      enemy.smoke = 0.85;
-      const puff = this.add.image(enemy.x + 10, enemy.y - 8, 'smoke').setDepth(20).setAlpha(0.5).setScale(0.55);
-      this.tweens.add({
-        targets: puff,
-        y: puff.y - 18,
-        alpha: 0,
-        scale: 1.05,
-        duration: 680,
-        onComplete: () => puff.destroy(),
-      });
-    }
-    if (shot) this.fireShell(enemy, shot);
-  }
-
-  fireShell(enemy, shot) {
-    const fromRider = riderMuzzle(enemy.x, enemy.y, shot.angle);
-    const sprite = this.add.image(fromRider.x, fromRider.y, 'tankShot').setDepth(16).setDisplaySize(12, 12);
-    const flash = this.add.image(fromRider.x, fromRider.y, 'stud').setDepth(17).setTint(0xffe14a).setScale(0.7);
-    this.tweens.add({
-      targets: flash,
-      alpha: 0,
-      scale: 1.6,
-      duration: 90,
-      onComplete: () => flash.destroy(),
-    });
-    shot = { ...shot, x: fromRider.x, y: fromRider.y };
-    this.shells.push({
-      x: shot.x,
-      y: shot.y,
-      vx: shot.vx,
-      vy: shot.vy,
-      damage: TANK_DAMAGE,
-      life: 2.4,
-      alive: true,
-      owner: enemy,
-      sprite,
-    });
-  }
-
-  updateShells(dt) {
-    const keep = [];
-    for (const shell of this.shells) {
-      if (!shell.alive) {
-        if (shell.sprite?.active) shell.sprite.destroy();
-        continue;
-      }
-      const beforeX = shell.x;
-      const beforeY = shell.y;
-      moveBody(shell, shell.vx, shell.vy, dt, 6, this.grid);
-      shell.life -= dt;
-      shell.sprite.setPosition(shell.x, shell.y);
-      shell.sprite.rotation += dt * 4;
-      const moved = Math.hypot(shell.x - beforeX, shell.y - beforeY);
-      const stuck = moved < Math.hypot(shell.vx, shell.vy) * dt * 0.35;
-      const player = this.player;
-      const hitPlayer =
-        player &&
-        player.visible &&
-        !this.respawning &&
-        !this.won &&
-        Math.hypot(player.x - shell.x, player.y - shell.y) < PLAYER_HALF + 8;
-      if (stuck || shell.life <= 0 || hitPlayer) {
-        shell.alive = false;
-        if (shell.sprite?.active) shell.sprite.destroy();
-        if (hitPlayer && this.invuln <= 0) {
-          this.hurt(shell, TANK_DAMAGE);
-          if (this.respawning) return;
-        } else if (!hitPlayer) {
-          spawnBurst(this, shell.x, shell.y, {
-            count: 3,
-            colors: [0x8a4a28, 0x1c1612, 0xc4622d],
-            power: 80,
-            life: 0.3,
-          });
-        }
-        continue;
-      }
-      keep.push(shell);
-    }
-    this.shells = keep;
-  }
-
   updateBullets(dt) {
     const keep = [];
     for (const bullet of this.bullets) {
@@ -644,20 +554,6 @@ export class GameScene extends Phaser.Scene {
         this.hitEnemy(enemy);
         return false;
       }
-      const shell = this.shells.find(
-        (item) => item.alive && Math.hypot(item.x - bullet.x, item.y - bullet.y) < 14,
-      );
-      if (shell) {
-        shell.alive = false;
-        shell.sprite.destroy();
-        spawnBurst(this, shell.x, shell.y, {
-          count: 3,
-          colors: [0xc4622d, 0xffe14a],
-          power: 90,
-          life: 0.25,
-        });
-        return false;
-      }
       const tx = Math.floor(bullet.x / TILE);
       const ty = Math.floor(bullet.y / TILE);
       if (!this.inBounds(tx, ty)) return false;
@@ -673,7 +569,7 @@ export class GameScene extends Phaser.Scene {
   enemyAt(x, y) {
     for (const enemy of this.enemies) {
       if (!enemy.alive) continue;
-      const radius = enemy.kind === 'tank' ? 22 : enemy.kind === 'brute' ? 20 : 18;
+      const radius = enemy.kind === 'brute' ? 20 : 18;
       if (Math.hypot(enemy.x - x, enemy.y - y) < radius) return enemy;
     }
     return null;
@@ -746,10 +642,6 @@ export class GameScene extends Phaser.Scene {
     if (!enemy.alive) return;
     if (enemy.kind === 'brute') {
       this.hitBrute(enemy);
-      return;
-    }
-    if (enemy.kind === 'tank') {
-      this.hitTank(enemy);
       return;
     }
     enemy.hp -= 1;
@@ -826,47 +718,14 @@ export class GameScene extends Phaser.Scene {
     });
   }
 
-  hitTank(enemy) {
-    enemy.hp -= 1;
-    if (enemy.hp <= 0) {
-      enemy.alive = false;
-      enemy.windup = 0;
-      const x = enemy.x;
-      const y = enemy.y;
-      enemy.sprite.destroy();
-      this.smashed += 1;
-      this.freeze = 0.08;
-      spawnBurst(this, x, y, {
-        count: 14,
-        colors: [0x8a4a28, 0xc4622d, 0x6e3b22, 0x1c1612, 0xffe14a, 0xffffff],
-        power: 360,
-        shake: 0.014,
-        ring: true,
-        ringColor: 0xc4622d,
-        word: 'SMASH!',
-        wordColor: '#e7b089',
-      });
-      flashScreen(this, 0xffffff, 0.22);
-      this.emitHud(true);
-      return;
+  syncHull() {
+    const hull = this.player?.hull;
+    if (!hull) return;
+    const key = this.armor >= 4 ? 'tankHull' : this.armor >= 2 ? 'tankHullCrack' : 'tankHullBreak';
+    if (hull.texture.key !== key) {
+      hull.setTexture(key);
+      hull.setDisplaySize(58, 58);
     }
-    const texture = enemy.hp <= 1 ? 'tankHullBreak' : enemy.hp <= 3 ? 'tankHullCrack' : 'tankHull';
-    enemy.sprite.bodySprite.setTexture(texture);
-    enemy.sprite.bodySprite.setDisplaySize(54, 54);
-    enemy.sprite.bodySprite.setTintFill(0xffffff);
-    enemy.sprite.rider.setTintFill(0xffffff);
-    this.time.delayedCall(80, () => {
-      if (!enemy.alive) return;
-      if (enemy.sprite.bodySprite?.active) enemy.sprite.bodySprite.clearTint();
-      if (enemy.sprite.rider?.active) enemy.sprite.rider.clearTint();
-    });
-    spawnBurst(this, enemy.x, enemy.y, {
-      count: 5,
-      colors: [0xc4622d, 0x1c1612, 0xffe14a],
-      power: 160,
-      life: 0.4,
-      shake: 0.003,
-    });
   }
 
   updatePlayCoins(time) {
@@ -896,18 +755,27 @@ export class GameScene extends Phaser.Scene {
       if (!enemy.alive) continue;
       const reach = enemy.kind === 'mad' ? 22 : 24;
       if (Math.hypot(enemy.x - this.player.x, enemy.y - this.player.y) <= reach) {
-        this.hurt(enemy, enemy.kind === 'tank' ? TANK_DAMAGE : 1);
+        this.hurt(enemy, 1);
         return;
       }
     }
   }
 
   hurt(enemy, damage = 1) {
-    this.health -= damage;
+    const next = absorbHit(this.armor, this.health, damage);
+    this.armor = next.armor;
+    this.health = next.health;
     this.invuln = 1.15;
     const angle = Math.atan2(this.player.y - enemy.y, this.player.x - enemy.x);
     this.knockX = Math.cos(angle) * 280;
     this.knockY = Math.sin(angle) * 280;
+    if (next.soaked) {
+      this.syncHull();
+      popText(this, this.player.x, this.player.y - 36, this.armor > 0 ? 'CLANG!' : 'ARMOR GONE!', '#e7b089');
+      flashScreen(this, 0xc4622d, 0.16);
+      this.emitHud(true);
+      return;
+    }
     if (this.health <= 0) {
       this.die();
       return;
@@ -936,20 +804,12 @@ export class GameScene extends Phaser.Scene {
     this.knockX = 0;
     this.knockY = 0;
     for (const enemy of this.enemies) {
-      if (!enemy.alive || (enemy.kind !== 'brute' && enemy.kind !== 'tank')) continue;
+      if (!enemy.alive || enemy.kind !== 'brute') continue;
       enemy.x = enemy.homeX;
       enemy.y = enemy.homeY;
       enemy.aggro = 0;
-      enemy.windup = 0;
-      enemy.cooldown = enemy.kind === 'tank' ? 1.4 : 0;
-      if (enemy.kind === 'tank') {
-        enemy.sprite.bodySprite.clearTint();
-        enemy.sprite.rider.clearTint();
-      }
       enemy.sprite.setPosition(enemy.x, enemy.y);
     }
-    for (const shell of this.shells) if (shell.sprite?.active) shell.sprite.destroy();
-    this.shells = [];
     this.emitHud(true);
     const gen = this.lifeGen;
     this.time.delayedCall(700, () => {
@@ -1002,13 +862,15 @@ export class GameScene extends Phaser.Scene {
 
   emitHud(force) {
     const shown = this.won ? this.finishElapsed : this.finishElapsed;
-    const snap = `${this.health}|${this.coinsGot}|${this.smashed}|${Math.floor(shown * 10)}`;
+    const snap = `${this.health}|${this.armor}|${this.coinsGot}|${this.smashed}|${Math.floor(shown * 10)}`;
     if (!force && snap === this.hudSnap) return;
     this.hudSnap = snap;
     window.dispatchEvent(
       new CustomEvent('bbb-hud', {
         detail: {
           health: this.health,
+          armor: this.armor,
+          armorMax: this.campaign === 2 ? TANK_ARMOR : 0,
           coins: this.coinsGot,
           coinsTotal: this.coinsTotal,
           smashed: this.smashed,

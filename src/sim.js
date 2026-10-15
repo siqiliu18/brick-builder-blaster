@@ -1,9 +1,12 @@
 import { COLS, ROWS, TILE } from './level.js';
-import { RIDER_MUZZLE_X, RIDER_MUZZLE_Y, RIDER_SEAT_Y, RIDER_SIZE, RIDER_TEX } from './textures.js';
 
 export const PLAYER_HALF = 12;
 export const ENEMY_HALF = 12;
 export const PLAYER_SPEED = 210;
+/** Level 2, while the hero is driving. A bit slower than running, still faster than a brute. */
+export const PLAYER_TANK_SPEED = 168;
+/** Hits the rusty hull soaks before a heart is lost. */
+export const TANK_ARMOR = 5;
 export const MAD_MIN_SPEED = 40;
 export const MAD_MAX_SPEED = 150;
 export const MAD_ACCEL = 8;
@@ -34,28 +37,11 @@ export function moveBody(body, vx, vy, dt, half, grid) {
   if (!isBlocked(grid, body.x, ny, half)) body.y = ny;
 }
 
-export const TANK_HP = 5;
-export const TANK_HALF = 14;
-export const TANK_SPEED = 36;
-export const TANK_CHASE_SPEED = 48;
-export const TANK_SIGHT = 220;
-export const TANK_LEASH = 120;
-export const TANK_SHOT_SPEED = 120;
-export const TANK_SHOT_COOLDOWN = 2.6;
-export const TANK_SHOT_WINDUP = 0.6;
-/** Hearts a tank bump or the rider's shot takes. Matches a purple brute's touch. */
-export const TANK_DAMAGE = 1;
-
-/** Where the rider's blaster tip sits, so a shot leaves the baddie and not the tank barrel. */
-export function riderMuzzle(x, y, aim) {
-  const scale = RIDER_SIZE / RIDER_TEX;
-  const lx = (RIDER_MUZZLE_X - RIDER_TEX / 2) * scale;
-  const ly = (RIDER_MUZZLE_Y - RIDER_TEX / 2) * scale;
-  const rot = aim + Math.PI / 2;
-  return {
-    x: x + lx * Math.cos(rot) - ly * Math.sin(rot),
-    y: y + RIDER_SEAT_Y + lx * Math.sin(rot) + ly * Math.cos(rot),
-  };
+/** Armor soaks a hit before hearts do. Damage stays 1, the same as a brute touch. */
+export function absorbHit(armor, health, damage = 1) {
+  const hit = Math.max(1, damage);
+  if (armor > 0) return { armor: armor - 1, health, soaked: true };
+  return { armor: 0, health: health - hit, soaked: false };
 }
 
 export function chase(enemy, target, dt, half, grid) {
@@ -198,69 +184,4 @@ export function stepBrute(enemy, target, dt, half, grid, active) {
   }
   patrolBounce(enemy, dt, half, grid);
   return 'patrol';
-}
-
-/**
- * Slow armored enemy. The hull creeps; the rider on top aims and fires.
- * The shot's damage is TANK_DAMAGE, the same as a brute touch.
- */
-export function stepTank(enemy, target, dt, half, grid, chasing, shotBusy) {
-  enemy.phase = (enemy.phase || 0) + dt;
-  if (enemy.cooldown > 0) enemy.cooldown -= dt;
-  if (!chasing || !target) enemy.windup = 0;
-
-  let shot = null;
-  if (enemy.windup > 0) {
-    enemy.windup -= dt;
-    if (enemy.windup <= 0) {
-      enemy.windup = 0;
-      const ang = Math.atan2((enemy.aimY ?? enemy.y) - enemy.y, (enemy.aimX ?? enemy.x) - enemy.x);
-      const muzzle = riderMuzzle(enemy.x, enemy.y, ang);
-      shot = {
-        x: muzzle.x,
-        y: muzzle.y,
-        vx: Math.cos(ang) * TANK_SHOT_SPEED,
-        vy: Math.sin(ang) * TANK_SHOT_SPEED,
-        damage: TANK_DAMAGE,
-        angle: ang,
-      };
-      enemy.cooldown = TANK_SHOT_COOLDOWN;
-    }
-  }
-
-  const distHome = Math.hypot(enemy.x - enemy.homeX, enemy.y - enemy.homeY);
-  let vx = 0;
-  let vy = 0;
-  let mode = 'idle';
-  if (chasing && target) {
-    const dist = Math.hypot(target.x - enemy.x, target.y - enemy.y);
-    const sees = dist < TANK_SIGHT && seesTarget(enemy, target, grid);
-    if (sees && distHome < TANK_LEASH) {
-      mode = 'aim';
-      enemy.aimX = target.x;
-      enemy.aimY = target.y;
-      if (dist > 64) {
-        vx = ((target.x - enemy.x) / (dist || 1)) * TANK_CHASE_SPEED;
-        vy = ((target.y - enemy.y) / (dist || 1)) * TANK_CHASE_SPEED;
-      }
-      if (!shotBusy && enemy.windup <= 0 && enemy.cooldown <= 0 && dist > 40) {
-        enemy.windup = TANK_SHOT_WINDUP;
-      }
-    } else if (distHome > 6) {
-      mode = 'return';
-      vx = ((enemy.homeX - enemy.x) / (distHome || 1)) * TANK_SPEED;
-      vy = ((enemy.homeY - enemy.y) / (distHome || 1)) * TANK_SPEED;
-    } else {
-      mode = 'patrol';
-      vx = Math.sin(enemy.phase * 0.6) * TANK_SPEED;
-    }
-  }
-  moveBody(enemy, vx, vy, dt, half, grid);
-  if (Math.hypot(vx, vy) > 1) enemy.hull = Math.atan2(vy, vx);
-  const face = enemy.hull ?? -Math.PI / 2;
-  const aim =
-    mode === 'aim'
-      ? Math.atan2((enemy.aimY ?? enemy.y) - enemy.y, (enemy.aimX ?? enemy.x) - enemy.x)
-      : face;
-  return { mode, shot, face, aim };
 }
