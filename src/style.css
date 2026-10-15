@@ -393,18 +393,18 @@ body.touch-ui[data-mode="play"] #touch-controls { display: block; }
   box-shadow: 0 4px 0 #0369a1, inset 0 -4px 0 rgba(0, 0, 0, 0.15);
 }
 
-body.touch-ui[data-mode="play"][data-campaign="2"] .stick-aim {
+body.touch-ui[data-mode="play"] .stick-aim {
   display: block;
 }
 
-body.touch-ui[data-mode="play"][data-campaign="2"] .shoot-btn {
+body.touch-ui[data-mode="play"] .shoot-btn {
   top: auto;
   right: 30px;
   bottom: 160px;
   transform: none;
 }
 
-body.touch-ui[data-mode="play"][data-campaign="2"] .shoot-btn:active {
+body.touch-ui[data-mode="play"] .shoot-btn:active {
   transform: translateY(3px);
 }
 

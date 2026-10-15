@@ -14,7 +14,7 @@ import {
   summarize,
   tileCenter,
 } from './level.js';
-import { aimVector, facing, isDown, isFireHeld, setFacing, stickVector } from './input.js';
+import { aimVector, isDown, isFireHeld, setFacing, stickVector } from './input.js';
 import { resolveAim } from './aim.js';
 import {
   BRUTE_HP,
@@ -459,13 +459,11 @@ export class GameScene extends Phaser.Scene {
       pointer.isDown && (pointer.downElement === canvas || pointer.target === canvas);
     const aim = aimVector();
     const shot = resolveAim({
-      riding: !!this.player.riding,
       touchControls: document.body.classList.contains('touch-ui'),
       aimX: aim.x,
       aimY: aim.y,
       aimOn: aim.on,
       lastAim: this.aimAngle ?? 0,
-      moveFacing: facing(),
       pointerInside: inside && !!pointer.event,
       pointerDown: pointer.leftButtonDown(),
       pointerOnBoard: onBoard,
