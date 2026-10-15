@@ -358,12 +358,27 @@ body.touch-ui[data-mode="play"] #touch-controls { display: block; }
   display: none;
   left: auto;
   right: 16px;
-  border-color: rgba(125, 211, 252, 0.95);
+  border-color: rgba(225, 6, 0, 0.95);
 }
 
 .stick-aim .stick-knob {
-  background: #7dd3fc;
-  box-shadow: 0 4px 0 #0369a1, inset 0 -4px 0 rgba(0, 0, 0, 0.15);
+  width: 86px;
+  height: 86px;
+  background: #e10600;
+  box-shadow: 0 4px 0 #7a120c, inset 0 -4px 0 rgba(0, 0, 0, 0.18);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.stick-aim .stick-label {
+  color: #fff;
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  pointer-events: none;
+  text-shadow: 0 1px 0 #7a120c;
 }
 
 body.touch-ui[data-mode="play"] .stick-aim {
