@@ -354,37 +354,10 @@ body.touch-ui[data-mode="play"] #touch-controls { display: block; }
   box-shadow: 0 4px 0 #b8860b, inset 0 -4px 0 rgba(0, 0, 0, 0.15);
 }
 
-.shoot-btn {
-  position: absolute;
-  right: 16px;
-  top: 50%;
-  width: 108px;
-  height: 108px;
-  transform: translateY(-50%);
-  border-radius: 50%;
-  border: 4px solid #7a120c;
-  background: #e10600;
-  color: white;
-  font-size: 20px;
-  font-weight: 800;
-  letter-spacing: 0.02em;
-  box-shadow: 0 6px 0 #7a120c;
-  pointer-events: auto;
-  touch-action: none;
-}
-
-.shoot-btn:active {
-  transform: translateY(calc(-50% + 3px));
-  box-shadow: 0 3px 0 #7a120c;
-}
-
 .stick-aim {
   display: none;
   left: auto;
-  right: 20px;
-  top: auto;
-  bottom: 16px;
-  transform: none;
+  right: 16px;
   border-color: rgba(125, 211, 252, 0.95);
 }
 
@@ -393,19 +366,8 @@ body.touch-ui[data-mode="play"] #touch-controls { display: block; }
   box-shadow: 0 4px 0 #0369a1, inset 0 -4px 0 rgba(0, 0, 0, 0.15);
 }
 
-body.touch-ui[data-mode="play"]:not([data-campaign="2"]) .stick-aim {
+body.touch-ui[data-mode="play"] .stick-aim {
   display: block;
-}
-
-body.touch-ui[data-mode="play"]:not([data-campaign="2"]) .shoot-btn {
-  top: auto;
-  right: 30px;
-  bottom: 160px;
-  transform: none;
-}
-
-body.touch-ui[data-mode="play"]:not([data-campaign="2"]) .shoot-btn:active {
-  transform: translateY(3px);
 }
 
 .modal {
