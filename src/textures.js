@@ -1,8 +1,7 @@
 import { COLS, ROWS } from './level.js';
 
 /**
- * Recolor the hero here. The whole figure is gray for now.
- * Set `hat` to a color such as '#e10600' later if Jasper wants a helmet.
+ * Recolor the hero here. The figure stays gray and wears an army helmet.
  */
 export const PLAYER_COLORS = {
   head: '#d0d0d0',
@@ -15,8 +14,14 @@ export const PLAYER_COLORS = {
   eye: '#222222',
   blaster: '#3c3c3c',
   blasterTip: '#c8c8c8',
-  hat: null,
+  hat: '#6a7178',
 };
+
+/** Old rust-brown hull. Scorch and heat stains are painted on top of this. */
+export const TANK_COLOR = '#8a4a28';
+const TANK_RUST = '#c4622d';
+const TANK_SCORCH = '#1c1612';
+const TANK_HEAT = '#3a2a22';
 
 const TEX = 80;
 
@@ -92,6 +97,15 @@ function brickBody(ctx, fill, shade, cracks) {
   }
 }
 
+function shade(hex, amount) {
+  const n = parseInt(hex.slice(1), 16);
+  const clamp = (v) => Math.max(0, Math.min(255, v));
+  const r = clamp(((n >> 16) & 255) + amount);
+  const g = clamp(((n >> 8) & 255) + amount);
+  const b = clamp((n & 255) + amount);
+  return `rgb(${r},${g},${b})`;
+}
+
 function lighten(hex) {
   const n = parseInt(hex.slice(1), 16);
   const r = Math.min(255, ((n >> 16) & 255) + 48);
@@ -144,12 +158,26 @@ function drawPlayer(ctx) {
   ctx.arc(40, 26, 16, 0, Math.PI * 2);
   ctx.fill();
   if (colors.hat) {
+    ctx.fillStyle = shade(colors.hat, -28);
+    ctx.beginPath();
+    ctx.ellipse(40, 24, 22, 8, 0, 0, Math.PI * 2);
+    ctx.fill();
     ctx.fillStyle = colors.hat;
     ctx.beginPath();
-    ctx.arc(40, 22, 16, Math.PI, 0);
+    ctx.ellipse(40, 22, 22, 7, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = shade(colors.hat, -12);
+    ctx.beginPath();
+    ctx.arc(40, 16, 13, Math.PI * 1.02, -0.02);
+    ctx.lineTo(40, 18);
+    ctx.fill();
+    ctx.fillStyle = shade(colors.hat, 28);
+    ctx.fillRect(38.5, 6, 3, 12);
+    ctx.fillStyle = shade(colors.hat, 40);
+    ctx.beginPath();
+    ctx.ellipse(32, 21, 7, 2.4, -0.3, 0, Math.PI * 2);
     ctx.fill();
   }
-  stud(ctx, 40, 20, 5, colors.stud, colors.headShade);
   ctx.fillStyle = colors.eye;
   ctx.beginPath();
   ctx.arc(34, 30, 2, 0, Math.PI * 2);
@@ -375,6 +403,106 @@ function drawShard(ctx, w, h) {
   ctx.fill();
 }
 
+function drawTank(ctx, cracks) {
+  ctx.clearRect(0, 0, 80, 80);
+  ctx.fillStyle = '#241910';
+  roundRect(ctx, 8, 16, 14, 50, 4);
+  ctx.fill();
+  roundRect(ctx, 58, 16, 14, 50, 4);
+  ctx.fill();
+  ctx.fillStyle = '#3a2e24';
+  for (let i = 0; i < 5; i++) {
+    ctx.fillRect(10, 20 + i * 9, 10, 3);
+    ctx.fillRect(60, 20 + i * 9, 10, 3);
+  }
+  ctx.fillStyle = TANK_COLOR;
+  roundRect(ctx, 16, 18, 48, 46, 6);
+  ctx.fill();
+  ctx.fillStyle = TANK_RUST;
+  ctx.beginPath();
+  ctx.ellipse(28, 32, 8, 5, 0.4, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.ellipse(52, 50, 7, 4, -0.2, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#6e3b22';
+  ctx.beginPath();
+  ctx.ellipse(48, 28, 5, 3, 0.3, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = 'rgba(42, 24, 12, 0.45)';
+  ctx.beginPath();
+  ctx.arc(24, 46, 3.2, 0, Math.PI * 2);
+  ctx.arc(54, 40, 2.4, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = TANK_HEAT;
+  ctx.beginPath();
+  ctx.ellipse(34, 48, 11, 7, 0.15, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = TANK_SCORCH;
+  ctx.beginPath();
+  ctx.ellipse(33, 46, 6, 3.4, 0.4, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.ellipse(50, 36, 4, 2.4, -0.5, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = shade(TANK_COLOR, -24);
+  ctx.beginPath();
+  ctx.arc(40, 40, 12, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = TANK_SCORCH;
+  ctx.beginPath();
+  ctx.arc(44, 36, 4, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#3a3028';
+  roundRect(ctx, 36, 4, 8, 24, 2);
+  ctx.fill();
+  ctx.fillStyle = TANK_SCORCH;
+  ctx.fillRect(36, 4, 8, 7);
+  ctx.fillStyle = '#5a5048';
+  ctx.fillRect(37, 14, 6, 2);
+  if (cracks > 0) {
+    ctx.strokeStyle = '#140e0a';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(26, 26);
+    ctx.lineTo(34, 34);
+    ctx.lineTo(24, 40);
+    ctx.stroke();
+  }
+  if (cracks > 1) {
+    ctx.beginPath();
+    ctx.moveTo(48, 46);
+    ctx.lineTo(58, 54);
+    ctx.lineTo(50, 58);
+    ctx.stroke();
+  }
+}
+
+function drawTankShot(ctx) {
+  ctx.fillStyle = TANK_SCORCH;
+  ctx.beginPath();
+  ctx.arc(12, 12, 8, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = TANK_RUST;
+  ctx.beginPath();
+  ctx.arc(12, 12, 5, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#f0d2a0';
+  ctx.beginPath();
+  ctx.arc(10, 10, 2, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function drawSmoke(ctx) {
+  const g = ctx.createRadialGradient(16, 16, 2, 16, 16, 14);
+  g.addColorStop(0, 'rgba(70, 70, 70, 0.55)');
+  g.addColorStop(1, 'rgba(70, 70, 70, 0)');
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.arc(16, 16, 14, 0, Math.PI * 2);
+  ctx.fill();
+}
+
 export function buildTextures(scene) {
   canvasTex(scene, 'board', COLS * TEX, ROWS * TEX, drawBoard);
   canvasTex(scene, 'brick0', TEX, TEX, (ctx) => brickBody(ctx, '#e10600', '#8e0400', 0));
@@ -387,6 +515,11 @@ export function buildTextures(scene) {
   canvasTex(scene, 'brute', 80, 80, (ctx) => drawBrute(ctx, 0));
   canvasTex(scene, 'bruteHurt', 80, 80, (ctx) => drawBrute(ctx, 1));
   canvasTex(scene, 'bruteCrack', 80, 80, (ctx) => drawBrute(ctx, 2));
+  canvasTex(scene, 'tank', 80, 80, (ctx) => drawTank(ctx, 0));
+  canvasTex(scene, 'tankCrack', 80, 80, (ctx) => drawTank(ctx, 1));
+  canvasTex(scene, 'tankBreak', 80, 80, (ctx) => drawTank(ctx, 2));
+  canvasTex(scene, 'tankShot', 24, 24, drawTankShot);
+  canvasTex(scene, 'smoke', 32, 32, drawSmoke);
   canvasTex(scene, 'coin', TEX, TEX, drawCoin);
   canvasTex(scene, 'start', TEX, TEX, drawStart);
   canvasTex(scene, 'finish', TEX, TEX, drawFinish);

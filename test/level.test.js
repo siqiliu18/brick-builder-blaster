@@ -37,7 +37,7 @@ test('erase and summarize count every piece', () => {
   rows = placeOn(rows, 5, 0, 'S').rows;
   rows = placeOn(rows, 6, 0, 'F').rows;
   const counts = summarize(rows);
-  assert.deepEqual(counts, { B: 1, W: 1, E: 2, C: 1, S: 1, F: 1, M: 0 });
+  assert.deepEqual(counts, { B: 1, W: 1, E: 2, C: 1, S: 1, F: 1, M: 0, T: 0 });
   rows = eraseOn(rows, 2, 0).rows;
   assert.equal(summarize(rows).E, 1);
   assert.equal(eraseOn(rows, 2, 0).dirty.length, 0);

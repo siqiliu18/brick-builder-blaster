@@ -4,7 +4,7 @@ export const TILE = 40;
 export const VIEW_W = COLS * TILE;
 export const VIEW_H = ROWS * TILE;
 
-const TILE_CHARS = '.BWECFSM';
+const TILE_CHARS = '.BWECFSMT';
 const KEY = 'brick-builder-blaster-v1';
 
 const listeners = new Set();
@@ -51,7 +51,7 @@ export function jaspersLevel() {
 
 /**
  * Level 2, the Brick Maze. Blue walls form the route, a red gate has to be
- * shot open, and M tiles are purple brutes (tougher than Level 1's mad circle).
+ * shot open, M tiles are purple brutes, and T is the rusty tank.
  */
 export function level2() {
   return [
@@ -66,7 +66,7 @@ export function level2() {
     'W..WWWW.MWWWW..WWWWW',
     'W..WWWW..WWWWC.BCWWW',
     'W..WWWW.CWWWW..WWWWW',
-    'W........WWWW......W',
+    'W...T....WWWW......W',
     'W....C...WWWW..C..FW',
     'WWWWWWWWWWWWWWW.M..W',
     'WWWWWWWWWWWWWWWWWWWW',
@@ -137,7 +137,7 @@ export function findCells(rowsIn, ch) {
 }
 
 export function summarize(rowsIn) {
-  const counts = { B: 0, W: 0, E: 0, C: 0, S: 0, F: 0, M: 0 };
+  const counts = { B: 0, W: 0, E: 0, C: 0, S: 0, F: 0, M: 0, T: 0 };
   for (const row of rowsIn) {
     for (const ch of row) {
       if (counts[ch] != null) counts[ch] += 1;
