@@ -1,4 +1,5 @@
 import { COLS, ROWS, TILE } from './level.js';
+import { RIDER_MUZZLE_X, RIDER_MUZZLE_Y, RIDER_SEAT_Y, RIDER_SIZE, RIDER_TEX } from './textures.js';
 
 export const PLAYER_HALF = 12;
 export const ENEMY_HALF = 12;
@@ -42,8 +43,20 @@ export const TANK_LEASH = 120;
 export const TANK_SHOT_SPEED = 120;
 export const TANK_SHOT_COOLDOWN = 2.6;
 export const TANK_SHOT_WINDUP = 0.6;
-/** Hearts a tank bump or tank shot takes. Matches a purple brute's touch. */
+/** Hearts a tank bump or the rider's shot takes. Matches a purple brute's touch. */
 export const TANK_DAMAGE = 1;
+
+/** Where the rider's blaster tip sits, so a shot leaves the baddie and not the tank barrel. */
+export function riderMuzzle(x, y, aim) {
+  const scale = RIDER_SIZE / RIDER_TEX;
+  const lx = (RIDER_MUZZLE_X - RIDER_TEX / 2) * scale;
+  const ly = (RIDER_MUZZLE_Y - RIDER_TEX / 2) * scale;
+  const rot = aim + Math.PI / 2;
+  return {
+    x: x + lx * Math.cos(rot) - ly * Math.sin(rot),
+    y: y + RIDER_SEAT_Y + lx * Math.sin(rot) + ly * Math.cos(rot),
+  };
+}
 
 export function chase(enemy, target, dt, half, grid) {
   const dx = target.x - enemy.x;
@@ -188,8 +201,8 @@ export function stepBrute(enemy, target, dt, half, grid, active) {
 }
 
 /**
- * Slow armored enemy. Creeps only a short way from home and, after a windup,
- * fires one slow shot. The shot's damage is TANK_DAMAGE, the same as a brute touch.
+ * Slow armored enemy. The hull creeps; the rider on top aims and fires.
+ * The shot's damage is TANK_DAMAGE, the same as a brute touch.
  */
 export function stepTank(enemy, target, dt, half, grid, chasing, shotBusy) {
   enemy.phase = (enemy.phase || 0) + dt;
@@ -202,12 +215,14 @@ export function stepTank(enemy, target, dt, half, grid, chasing, shotBusy) {
     if (enemy.windup <= 0) {
       enemy.windup = 0;
       const ang = Math.atan2((enemy.aimY ?? enemy.y) - enemy.y, (enemy.aimX ?? enemy.x) - enemy.x);
+      const muzzle = riderMuzzle(enemy.x, enemy.y, ang);
       shot = {
-        x: enemy.x + Math.cos(ang) * 22,
-        y: enemy.y + Math.sin(ang) * 22,
+        x: muzzle.x,
+        y: muzzle.y,
         vx: Math.cos(ang) * TANK_SHOT_SPEED,
         vy: Math.sin(ang) * TANK_SHOT_SPEED,
         damage: TANK_DAMAGE,
+        angle: ang,
       };
       enemy.cooldown = TANK_SHOT_COOLDOWN;
     }
@@ -241,11 +256,11 @@ export function stepTank(enemy, target, dt, half, grid, chasing, shotBusy) {
     }
   }
   moveBody(enemy, vx, vy, dt, half, grid);
-  const face =
-    Math.hypot(vx, vy) > 1
-      ? Math.atan2(vy, vx)
-      : enemy.aimX != null
-        ? Math.atan2((enemy.aimY ?? enemy.y) - enemy.y, (enemy.aimX ?? enemy.x) - enemy.x)
-        : -Math.PI / 2;
-  return { mode, shot, face };
+  if (Math.hypot(vx, vy) > 1) enemy.hull = Math.atan2(vy, vx);
+  const face = enemy.hull ?? -Math.PI / 2;
+  const aim =
+    mode === 'aim'
+      ? Math.atan2((enemy.aimY ?? enemy.y) - enemy.y, (enemy.aimX ?? enemy.x) - enemy.x)
+      : face;
+  return { mode, shot, face, aim };
 }

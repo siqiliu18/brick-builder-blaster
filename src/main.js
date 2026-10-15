@@ -118,7 +118,7 @@ async function boot() {
   const level2Help = {
     walls: 'Blue walls make the maze. Shoot the red gate to open it. A red brick hides a bonus coin.',
     hearts:
-      'Purple monsters take 3 hits. The rusty tank takes 5 and shoots slowly. A bump or a shot still costs 1 heart.',
+      'Purple monsters take 3 hits. A baddie rides the rusty tank and shoots slowly. The tank takes 5 hits. A bump or a shot still costs 1 heart.',
     goal: 'Follow the coins to the blue flag.',
   };
   function showHelp(campaign) {
@@ -205,7 +205,7 @@ async function boot() {
       'Load it',
       () => {
         replaceLevel(level2());
-        toast('Level 2 loaded. The rusty tank takes 5 hits and shoots slowly.');
+        toast('Level 2 loaded. A baddie rides the rusty tank and shoots slowly.');
       },
     );
   });
