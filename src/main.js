@@ -46,6 +46,23 @@ function hide(id) {
   document.getElementById(id).classList.add('hidden');
 }
 
+function renderArmor(armor, armorMax) {
+  const wrap = document.getElementById('armor');
+  wrap.replaceChildren();
+  if (!armorMax) {
+    wrap.classList.add('hidden');
+    wrap.removeAttribute('aria-label');
+    return;
+  }
+  wrap.classList.remove('hidden');
+  for (let i = 0; i < armorMax; i++) {
+    const plate = document.createElement('span');
+    plate.className = i < armor ? 'plate' : 'plate empty';
+    wrap.appendChild(plate);
+  }
+  wrap.setAttribute('aria-label', `${Math.max(0, armor)} tank armor`);
+}
+
 function renderHearts(health) {
   const wrap = document.getElementById('hearts');
   wrap.replaceChildren();
@@ -118,7 +135,7 @@ async function boot() {
   const level2Help = {
     walls: 'Blue walls make the maze. Shoot the red gate to open it. A red brick hides a bonus coin.',
     hearts:
-      'Purple monsters take 3 hits. A baddie rides the rusty tank and shoots slowly. The tank takes 5 hits. A bump or a shot still costs 1 heart.',
+      'You ride the rusty tank. It is a little slower than running. Armor takes 5 hits, then a monster costs a heart. Purple monsters still take 3 hits.',
     goal: 'Follow the coins to the blue flag.',
   };
   function showHelp(campaign) {
@@ -142,6 +159,7 @@ async function boot() {
   window.addEventListener('bbb-hud', (event) => {
     const hud = event.detail;
     renderHearts(hud.health);
+    renderArmor(hud.armor || 0, hud.armorMax || 0);
     document.getElementById('hud-coins').textContent = `Coins ${hud.coins}`;
     document.getElementById('hud-enemies').textContent = `Smashed ${hud.smashed}`;
     document.getElementById('hud-time').textContent = formatTime(hud.time);
@@ -205,7 +223,7 @@ async function boot() {
       'Load it',
       () => {
         replaceLevel(level2());
-        toast('Level 2 loaded. A baddie rides the rusty tank and shoots slowly.');
+        toast('Level 2 loaded. You ride the rusty tank. Armor takes 5 hits.');
       },
     );
   });

@@ -23,13 +23,6 @@ const TANK_RUST = '#c4622d';
 const TANK_SCORCH = '#1c1612';
 const TANK_HEAT = '#3a2a22';
 
-/** Rider sprite is RIDER_TEX square. The blaster tip is the muzzle the shots leave. */
-export const RIDER_TEX = 48;
-export const RIDER_SIZE = 36;
-export const RIDER_SEAT_Y = -6;
-export const RIDER_MUZZLE_X = 33;
-export const RIDER_MUZZLE_Y = 3;
-
 const TEX = 80;
 
 function roundRect(ctx, x, y, w, h, r) {
@@ -410,49 +403,6 @@ function drawShard(ctx, w, h) {
   ctx.fill();
 }
 
-function drawRider(ctx) {
-  ctx.fillStyle = '#2c1810';
-  roundRect(ctx, 12, 30, 9, 12, 2);
-  ctx.fill();
-  roundRect(ctx, 23, 30, 9, 12, 2);
-  ctx.fill();
-  ctx.fillStyle = '#9b1d1d';
-  roundRect(ctx, 12, 18, 22, 16, 3);
-  ctx.fill();
-  ctx.fillStyle = '#6e1212';
-  ctx.fillRect(12, 28, 22, 4);
-  ctx.fillStyle = '#e0b090';
-  roundRect(ctx, 30, 16, 7, 8, 2);
-  ctx.fill();
-  ctx.fillStyle = '#e7b898';
-  ctx.beginPath();
-  ctx.arc(22, 14, 8, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = '#241810';
-  ctx.beginPath();
-  ctx.arc(22, 12, 8, Math.PI, 0);
-  ctx.fill();
-  ctx.fillRect(14, 11, 16, 3);
-  ctx.strokeStyle = '#1a120c';
-  ctx.lineWidth = 1.4;
-  ctx.beginPath();
-  ctx.moveTo(17, 13);
-  ctx.lineTo(20, 15);
-  ctx.moveTo(27, 13);
-  ctx.lineTo(24, 15);
-  ctx.moveTo(18, 19);
-  ctx.quadraticCurveTo(22, 17, 26, 19);
-  ctx.stroke();
-  ctx.fillStyle = '#1a120c';
-  ctx.fillRect(17, 15, 3, 2);
-  ctx.fillRect(24, 15, 3, 2);
-  ctx.fillStyle = '#2a2a2a';
-  roundRect(ctx, RIDER_MUZZLE_X - 3, RIDER_MUZZLE_Y, 6, 16, 2);
-  ctx.fill();
-  ctx.fillStyle = '#ffe14a';
-  ctx.fillRect(RIDER_MUZZLE_X - 2, RIDER_MUZZLE_Y, 4, 4);
-}
-
 function drawTankHull(ctx, cracks) {
   ctx.clearRect(0, 0, 80, 80);
   ctx.fillStyle = '#241910';
@@ -528,27 +478,6 @@ function drawTankHull(ctx, cracks) {
   }
 }
 
-function drawTank(ctx, cracks) {
-  drawTankHull(ctx, cracks);
-  ctx.save();
-  ctx.translate(40, 40 + RIDER_SEAT_Y);
-  ctx.scale(0.7, 0.7);
-  ctx.translate(-RIDER_TEX / 2, -RIDER_TEX / 2);
-  drawRider(ctx);
-  ctx.restore();
-}
-
-function drawTankShot(ctx) {
-  ctx.fillStyle = '#ffb300';
-  ctx.beginPath();
-  ctx.arc(12, 12, 7, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = '#fff3bf';
-  ctx.beginPath();
-  ctx.arc(12, 12, 3, 0, Math.PI * 2);
-  ctx.fill();
-}
-
 function drawSmoke(ctx) {
   const g = ctx.createRadialGradient(16, 16, 2, 16, 16, 14);
   g.addColorStop(0, 'rgba(70, 70, 70, 0.55)');
@@ -571,12 +500,10 @@ export function buildTextures(scene) {
   canvasTex(scene, 'brute', 80, 80, (ctx) => drawBrute(ctx, 0));
   canvasTex(scene, 'bruteHurt', 80, 80, (ctx) => drawBrute(ctx, 1));
   canvasTex(scene, 'bruteCrack', 80, 80, (ctx) => drawBrute(ctx, 2));
-  canvasTex(scene, 'tank', 80, 80, (ctx) => drawTank(ctx, 0));
+  canvasTex(scene, 'tank', 80, 80, (ctx) => drawTankHull(ctx, 0));
   canvasTex(scene, 'tankHull', 80, 80, (ctx) => drawTankHull(ctx, 0));
   canvasTex(scene, 'tankHullCrack', 80, 80, (ctx) => drawTankHull(ctx, 1));
   canvasTex(scene, 'tankHullBreak', 80, 80, (ctx) => drawTankHull(ctx, 2));
-  canvasTex(scene, 'tankRider', RIDER_TEX, RIDER_TEX, drawRider);
-  canvasTex(scene, 'tankShot', 24, 24, drawTankShot);
   canvasTex(scene, 'smoke', 32, 32, drawSmoke);
   canvasTex(scene, 'coin', TEX, TEX, drawCoin);
   canvasTex(scene, 'start', TEX, TEX, drawStart);
