@@ -1,7 +1,6 @@
 const held = new Set();
 let joy = { x: 0, y: 0, on: false };
 let aimJoy = { x: 0, y: 0, on: false };
-let fireHeld = false;
 let face = 0;
 
 function typingTarget(target) {
@@ -22,7 +21,6 @@ window.addEventListener('blur', () => {
   held.clear();
   joy = { x: 0, y: 0, on: false };
   aimJoy = { x: 0, y: 0, on: false };
-  fireHeld = false;
 });
 
 export function isDown(...names) {
@@ -44,14 +42,6 @@ export function setAimStick(x, y, on) {
 
 export function aimVector() {
   return aimJoy;
-}
-
-export function setFireHeld(on) {
-  fireHeld = on;
-}
-
-export function isFireHeld() {
-  return fireHeld;
 }
 
 export function facing() {
