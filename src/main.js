@@ -7,6 +7,7 @@ import {
   VIEW_H,
   VIEW_W,
   clearLevel,
+  activeCampaign,
   encodeLevel,
   getRows,
   initLevel,
@@ -277,7 +278,7 @@ async function boot() {
     const button = document.getElementById('btn-share');
     button.disabled = true;
     try {
-      const code = await encodeLevel(getRows());
+      const code = await encodeLevel(getRows(), activeCampaign());
       const url = shareUrl(code);
       const input = document.getElementById('share-url');
       input.value = url;

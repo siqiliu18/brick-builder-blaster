@@ -4,12 +4,18 @@ import {
   COLS,
   ROWS,
   TILE,
+  activeCampaign,
   campaignFor,
+  clearLevel,
   decodeLevel,
   encodeLevel,
+  erase,
   findCells,
+  getRows,
   jaspersLevel,
   level2,
+  place,
+  replaceLevel,
   summarize,
   tileCenter,
   validateRows,
@@ -402,4 +408,26 @@ test('a careful kid can clear Level 2', () => {
     }
   }
   assert.fail(`did not reach the finish (${deaths} pops, monsters left ${monsters.filter((m) => m.alive).length})`);
+});
+
+test('editing Level 2 keeps the tank, and editing Level 1 stays on foot', () => {
+  try {
+    replaceLevel(level2());
+    assert.equal(activeCampaign(), 2);
+    erase(1, 4);
+    assert.equal(getRows()[4][1], '.');
+    assert.equal(campaignFor(getRows()), 0);
+    assert.equal(activeCampaign(), 2);
+    place(3, 2, 'B');
+    assert.equal(activeCampaign(), 2);
+
+    replaceLevel(jaspersLevel());
+    assert.equal(activeCampaign(), 1);
+    erase(8, 2);
+    assert.equal(campaignFor(getRows()), 0);
+    assert.equal(activeCampaign(), 0);
+  } finally {
+    clearLevel();
+    assert.equal(activeCampaign(), 0);
+  }
 });
