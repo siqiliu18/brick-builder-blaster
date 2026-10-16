@@ -5,7 +5,7 @@ import {
   TILE,
   VIEW_H,
   VIEW_W,
-  campaignFor,
+  activeCampaign,
   erase,
   findCells,
   getRows,
@@ -246,7 +246,7 @@ export class GameScene extends Phaser.Scene {
     }
     window.dispatchEvent(new CustomEvent('bbb-hide-results'));
     this.mode = 'play';
-    this.campaign = campaignFor(rows);
+    this.campaign = activeCampaign(rows);
     this.won = false;
     this.respawning = false;
     this.lifeGen += 1;

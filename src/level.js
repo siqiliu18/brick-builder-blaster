@@ -11,6 +11,9 @@ const listeners = new Set();
 let rows = blankRows();
 let source = 'new';
 let savedFallback = false;
+/** 2 once Level 2 is loaded, until a different level replaces it. Edits do not clear it. */
+let loadedCampaign = 0;
+let decodedCampaign = 0;
 
 export function blankRows() {
   return Array.from({ length: ROWS }, () => '.'.repeat(COLS));
@@ -83,6 +86,20 @@ export function campaignFor(rowsIn) {
   if (sameRows(rowsIn, jaspersLevel())) return 1;
   if (sameRows(rowsIn, level2())) return 2;
   return 0;
+}
+
+/**
+ * Which campaign play mode should use.
+ * An exact Jasper layout is still Level 1, and any other board is custom,
+ * unless Level 2 itself was loaded — that stays Level 2 after tiles change.
+ */
+export function activeCampaign(rowsIn = rows) {
+  if (loadedCampaign === 2) return 2;
+  return campaignFor(rowsIn);
+}
+
+function adoptCampaign(rowsIn, stored) {
+  loadedCampaign = stored === 2 ? 2 : campaignFor(rowsIn);
 }
 
 export function validateRows(value) {
@@ -170,7 +187,9 @@ function notify(dirty) {
 function persist() {
   if (typeof localStorage === 'undefined') return;
   try {
-    localStorage.setItem(KEY, JSON.stringify({ v: 1, rows }));
+    const payload = { v: 1, rows };
+    if (loadedCampaign === 2) payload.campaign = 2;
+    localStorage.setItem(KEY, JSON.stringify(payload));
   } catch {
     // Private mode or a full disk should not break building.
   }
@@ -187,7 +206,7 @@ function readSaved() {
     if (!raw) return null;
     const data = JSON.parse(raw);
     if (data?.v !== 1 || !validateRows(data.rows)) return null;
-    return data.rows;
+    return { rows: data.rows, campaign: data.campaign === 2 ? 2 : 0 };
   } catch {
     return null;
   }
@@ -211,12 +230,14 @@ export function erase(tx, ty) {
 
 export function clearLevel() {
   rows = blankRows();
+  loadedCampaign = 0;
   persist();
   notify(null);
 }
 
 export function replaceLevel(next) {
   rows = next.map((row) => row);
+  adoptCampaign(rows, campaignFor(rows));
   persist();
   notify(null);
 }
@@ -236,8 +257,10 @@ function b64urlToBytes(text) {
   return out;
 }
 
-export async function encodeLevel(rowsIn) {
-  const json = JSON.stringify({ v: 1, rows: rowsIn });
+export async function encodeLevel(rowsIn, campaignId = campaignFor(rowsIn)) {
+  const payload = { v: 1, rows: rowsIn };
+  if (campaignId === 2) payload.campaign = 2;
+  const json = JSON.stringify(payload);
   const bytes = new TextEncoder().encode(json);
   try {
     const stream = new Blob([bytes]).stream().pipeThrough(new CompressionStream('deflate-raw'));
@@ -249,6 +272,7 @@ export async function encodeLevel(rowsIn) {
 }
 
 export async function decodeLevel(code) {
+  decodedCampaign = 0;
   if (typeof code !== 'string' || code.length < 2 || code.length > 8000) return null;
   try {
     const kind = code[0];
@@ -264,8 +288,10 @@ export async function decodeLevel(code) {
     }
     const data = JSON.parse(json);
     if (data?.v !== 1 || !validateRows(data.rows)) return null;
+    decodedCampaign = data.campaign === 2 ? 2 : 0;
     return data.rows;
   } catch {
+    decodedCampaign = 0;
     return null;
   }
 }
@@ -298,6 +324,7 @@ export async function initLevel() {
     const decoded = await decodeLevel(code);
     if (decoded) {
       rows = decoded;
+      adoptCampaign(rows, decodedCampaign);
       source = 'link';
       persist();
       const url = new URL(window.location.href);
@@ -309,12 +336,14 @@ export async function initLevel() {
   }
   const saved = readSaved();
   if (saved) {
-    rows = saved;
+    rows = saved.rows;
+    adoptCampaign(rows, saved.campaign);
     savedFallback = source === 'bad-link';
     if (source !== 'bad-link') source = 'saved';
     return;
   }
   rows = jaspersLevel();
+  adoptCampaign(rows, 0);
   if (source !== 'bad-link') source = 'jasper';
   persist();
 }
