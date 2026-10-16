@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import './style.css';
 import { GameScene } from './GameScene.js';
 import { installTouch } from './touch.js';
+import { installAudio, isMuted, toggleMuted } from './audio.js';
 import {
   VIEW_H,
   VIEW_W,
@@ -112,8 +113,22 @@ function scene() {
   return game?.scene.getScene('game') ?? null;
 }
 
+function syncMuteButton() {
+  const button = document.getElementById('btn-mute');
+  const muted = isMuted();
+  button.setAttribute('aria-pressed', muted ? 'true' : 'false');
+  button.setAttribute('aria-label', muted ? 'Unmute sound' : 'Mute sound');
+  button.textContent = muted ? 'Muted' : 'Sound on';
+}
+
 async function boot() {
   installTouch();
+  installAudio();
+  syncMuteButton();
+  document.getElementById('btn-mute').addEventListener('click', () => {
+    toggleMuted();
+    syncMuteButton();
+  });
   await initLevel();
 
   const message = loadMessage();

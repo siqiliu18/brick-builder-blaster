@@ -107,6 +107,30 @@ h2 { margin: 0 0 4px; font-size: 16px; }
   border: 3px solid #3ddc84;
 }
 
+.mute-btn {
+  flex: none;
+  min-height: 44px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 3px solid #081018;
+  background: #24344a;
+  color: var(--yellow);
+  font-weight: 800;
+  font-size: 15px;
+  cursor: pointer;
+  box-shadow: 0 3px 0 #081018;
+}
+
+.mute-btn[aria-pressed='true'] {
+  background: #3a2430;
+  color: #ffb4b4;
+}
+
+.mute-btn:active {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 #081018;
+}
+
 .hud {
   display: flex;
   align-items: center;

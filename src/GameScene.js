@@ -36,6 +36,7 @@ import {
 } from './sim.js';
 import { buildTextures } from './textures.js';
 import { clearFx, flashScreen, popText, spawnBurst, updateFx } from './fx.js';
+import { playGrunt, playShot, syncMoveSound } from './audio.js';
 
 const DRAG_TOOLS = new Set(['B', 'W']);
 
@@ -386,6 +387,7 @@ export class GameScene extends Phaser.Scene {
     const dt = Math.min(0.05, delta / 1000);
     updateFx(this, dt);
     if (this.mode === 'build') {
+      syncMoveSound(dt, false, false);
       this.bobCoins(time);
       return;
     }
@@ -393,9 +395,11 @@ export class GameScene extends Phaser.Scene {
     this.emitHud(false);
     if (this.freeze > 0) {
       this.freeze -= dt;
+      syncMoveSound(dt, false, false);
       return;
     }
     if (!this.won) this.updatePlay(dt, time);
+    else syncMoveSound(dt, false, false);
   }
 
   bobCoins(time) {
@@ -421,6 +425,7 @@ export class GameScene extends Phaser.Scene {
   updatePlayer(dt, time) {
     if (!this.player || this.respawning) {
       this.aim.clear();
+      syncMoveSound(dt, false, false);
       return;
     }
     let ix = 0;
@@ -436,6 +441,7 @@ export class GameScene extends Phaser.Scene {
     }
     const moving = Math.hypot(ix, iy) > 0.05;
     if (moving) setFacing(Math.atan2(iy, ix));
+    syncMoveSound(dt, moving, !!this.player.riding);
     const len = Math.hypot(ix, iy) || 1;
     const speed = this.player.riding ? PLAYER_TANK_SPEED : PLAYER_SPEED;
     const vx = (moving ? (ix / len) * speed : 0) + this.knockX;
@@ -509,6 +515,7 @@ export class GameScene extends Phaser.Scene {
     const speed = 560;
     const sprite = this.add.image(x, y, 'bullet').setDepth(3200).setRotation(angle);
     this.bullets.push({ x, y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, sprite });
+    playShot();
     const muzzle = this.add.image(x, y, 'stud').setDepth(3300).setTint(0xfff3bf).setScale(0.8);
     this.tweens.add({
       targets: muzzle,
@@ -683,9 +690,11 @@ export class GameScene extends Phaser.Scene {
         wordColor: '#ffe14a',
       });
       flashScreen(this, 0xffffff, 0.22);
+      playGrunt(true);
       this.emitHud(true);
       return;
     }
+    playGrunt(false);
     enemy.sprite.bodySprite.setTexture('enemyHurt');
     enemy.sprite.bodySprite.setTintFill(0xffffff);
     this.time.delayedCall(80, () => {
@@ -720,9 +729,11 @@ export class GameScene extends Phaser.Scene {
         wordColor: '#e1bee7',
       });
       flashScreen(this, 0xffffff, 0.22);
+      playGrunt(true);
       this.emitHud(true);
       return;
     }
+    playGrunt(false);
     enemy.sprite.bodySprite.setTexture(enemy.hp === 1 ? 'bruteCrack' : 'bruteHurt');
     enemy.sprite.bodySprite.setDisplaySize(46, 46);
     enemy.sprite.bodySprite.setTintFill(0xffffff);
