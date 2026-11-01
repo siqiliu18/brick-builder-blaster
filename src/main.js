@@ -264,12 +264,12 @@ async function boot() {
   });
   document.getElementById('btn-jasper').addEventListener('click', () => {
     ask(
-      "Load Jasper's Level 1?",
+      "Load Level 1?",
       'This replaces the level you are building. You can still edit it afterward.',
       'Load it',
       () => {
         replaceLevel(jaspersLevel());
-        toast("Jasper's Level 1 loaded. Change anything you like.");
+        toast("Level 1 loaded. Change anything you like.");
       },
     );
   });

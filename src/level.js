@@ -307,10 +307,10 @@ export function loadMessage() {
     return { toast: 'That share link did not work. Your saved level was opened instead.' };
   }
   if (source === 'bad-link') {
-    return { toast: "That share link did not work. Jasper's Level 1 was opened instead." };
+    return { toast: "That share link did not work. Level 1 was opened instead." };
   }
   if (source === 'jasper') {
-    return { toast: "Jasper's Level 1 is ready. Change it if you want, then play test." };
+    return { toast: "Level 1 is ready. Change it if you want, then play test." };
   }
   return {};
 }
