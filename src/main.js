@@ -184,6 +184,13 @@ async function boot() {
     move: helpMove.innerHTML,
     shoot: helpShoot.innerHTML,
   };
+  const level3Help = {
+    walls: 'Level 3 is a 3D test of the Level 1 layout. Blue boxes are solid walls. Red boxes are bricks.',
+    hearts: 'Orange boxes are monsters. They chase you. Shoot them with the red stick.',
+    goal: 'This is a test scene. Back to build returns to the menu.',
+    move: helpMove.innerHTML,
+    shoot: helpShoot.innerHTML,
+  };
   const level2Help = {
     walls: 'Blue walls make the maze. Shoot the red gate to open it. A red brick hides a bonus coin.',
     hearts:
@@ -193,7 +200,7 @@ async function boot() {
     shoot: helpShoot.innerHTML,
   };
   function showHelp(campaign) {
-    const help = campaign === 2 ? level2Help : level1Help;
+    const help = campaign === 3 ? level3Help : campaign === 2 ? level2Help : level1Help;
     helpWalls.textContent = help.walls;
     helpHearts.textContent = help.hearts;
     helpGoal.textContent = help.goal;
@@ -207,6 +214,7 @@ async function boot() {
     document.body.dataset.campaign = String(detail.campaign || 0);
     const pill = document.getElementById('mode-pill');
     if (detail.mode !== 'play') pill.textContent = 'Building';
+    else if (detail.campaign === 3) pill.textContent = 'Level 3';
     else if (detail.campaign === 2) pill.textContent = 'Level 2';
     else pill.textContent = 'Playing';
     showHelp(detail.mode === 'play' ? detail.campaign : 1);
@@ -242,7 +250,13 @@ async function boot() {
   document.getElementById('btn-play').addEventListener('click', () => {
     scene()?.enterPlay();
   });
-  document.getElementById('btn-back').addEventListener('click', () => scene()?.backToBuild());
+  document.getElementById('btn-back').addEventListener('click', () => {
+    if (level3Handle) {
+      stopLevel3();
+      return;
+    }
+    scene()?.backToBuild();
+  });
   document.getElementById('btn-again').addEventListener('click', () => scene()?.enterPlay());
   document.getElementById('btn-results-back').addEventListener('click', () => scene()?.backToBuild());
 
@@ -273,6 +287,47 @@ async function boot() {
       },
     );
   });
+  let level3Handle = null;
+
+  function stopLevel3() {
+    const handle = level3Handle;
+    level3Handle = null;
+    handle?.stop();
+    document.getElementById('board-frame').classList.remove('level3-on');
+    window.dispatchEvent(new CustomEvent('bbb-mode', { detail: { mode: 'build', campaign: 0 } }));
+    game?.scene.resume('game');
+  }
+
+  document.getElementById('btn-level3').addEventListener('click', async () => {
+    if (level3Handle) return;
+    const button = document.getElementById('btn-level3');
+    button.disabled = true;
+    try {
+      const { mountLevel3 } = await import('./level3.js');
+      document.getElementById('board-frame').classList.add('level3-on');
+      hide('results');
+      window.dispatchEvent(new CustomEvent('bbb-mode', { detail: { mode: 'play', campaign: 3 } }));
+      renderHearts(3);
+      renderArmor(0, 0);
+      document.getElementById('hud-coins').textContent = 'Coins 0';
+      document.getElementById('hud-enemies').textContent = 'Smashed 0';
+      document.getElementById('hud-time').textContent = '0:00.0';
+      level3Handle = mountLevel3(document.getElementById('level3-root'), {
+        onExit: stopLevel3,
+        onSmash: (count) => {
+          document.getElementById('hud-enemies').textContent = `Smashed ${count}`;
+        },
+      });
+      game?.scene.pause('game');
+    } catch (error) {
+      console.error(error);
+      toast('Level 3 could not start.');
+      stopLevel3();
+    } finally {
+      button.disabled = false;
+    }
+  });
+
   document.getElementById('btn-level2').addEventListener('click', () => {
     ask(
       'Load Level 2?',

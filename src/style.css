@@ -336,6 +336,14 @@ h2 { margin: 0 0 4px; font-size: 16px; }
   font-size: 16px;
 }
 
+.btn-level3 {
+  background: #80deea;
+  color: #08343a;
+  border-color: #00838f;
+  box-shadow: 0 4px 0 #00838f;
+  font-size: 16px;
+}
+
 #btn-next { width: 100%; }
 
 .btn-go {
@@ -379,6 +387,43 @@ h2 { margin: 0 0 4px; font-size: 16px; }
 }
 
 #game { position: absolute; inset: 0; touch-action: none; }
+
+#level3-root {
+  display: none;
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  background: #7f93a6;
+}
+
+#level3-root canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+}
+
+#board-frame.level3-on #level3-root { display: block; }
+#board-frame.level3-on #game { visibility: hidden; }
+
+.level3-fallback {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 24px;
+  text-align: center;
+  color: #142033;
+  font-weight: 800;
+}
+
+.level3-fallback p {
+  margin: 0;
+  max-width: 340px;
+  font-size: 18px;
+}
 #game canvas { touch-action: none; }
 #game canvas:focus { outline: none; }
 
