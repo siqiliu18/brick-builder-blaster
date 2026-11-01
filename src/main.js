@@ -3,6 +3,7 @@ import './style.css';
 import { GameScene } from './GameScene.js';
 import { installTouch } from './touch.js';
 import { installAudio, isMuted, toggleMuted } from './audio.js';
+import { getPlayerName, setPlayerName } from './name.js';
 import {
   VIEW_H,
   VIEW_W,
@@ -122,10 +123,41 @@ function syncMuteButton() {
   button.textContent = muted ? 'Muted' : 'Sound on';
 }
 
+function syncPlayerName() {
+  const name = getPlayerName();
+  const line = document.getElementById('name-current');
+  line.textContent = name;
+  line.classList.toggle('hidden', !name);
+}
+
+function installNameEntry() {
+  const form = document.getElementById('name-form');
+  const input = document.getElementById('name-input');
+  const commit = () => {
+    setPlayerName(input.value);
+    syncPlayerName();
+  };
+  document.getElementById('btn-name').addEventListener('click', () => {
+    input.value = getPlayerName();
+    form.classList.remove('hidden');
+    input.focus();
+    input.select();
+  });
+  input.addEventListener('input', commit);
+  form.addEventListener('submit', (event) => {
+    event.preventDefault();
+    commit();
+    form.classList.add('hidden');
+    input.blur();
+  });
+  syncPlayerName();
+}
+
 async function boot() {
   installTouch();
   installAudio();
   syncMuteButton();
+  installNameEntry();
   document.getElementById('btn-mute').addEventListener('click', () => {
     toggleMuted();
     syncMuteButton();

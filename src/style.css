@@ -192,6 +192,37 @@ h2 { margin: 0 0 4px; font-size: 16px; }
 
 .tool-scroll { flex: 1; }
 
+.name-box {
+  padding: 12px 12px 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.name-current {
+  margin: 0;
+  text-align: center;
+  font-weight: 800;
+  font-size: 16px;
+  letter-spacing: 0.06em;
+  color: #fff8e8;
+}
+
+.name-form input {
+  width: 100%;
+  font-size: 16px;
+  font-weight: 800;
+  text-align: center;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 3px solid #081018;
+  background: #fff8e8;
+  color: #142033;
+  user-select: text;
+  -webkit-user-select: text;
+  touch-action: manipulation;
+}
+
 .actions {
   padding: 8px 12px 12px;
   background: #152232;
@@ -285,6 +316,16 @@ h2 { margin: 0 0 4px; font-size: 16px; }
   border-color: #c9a227;
   box-shadow: 0 4px 0 #c9a227;
   font-size: 16px;
+}
+
+.btn.btn-name {
+  width: 100%;
+  background: #ffe14a;
+  color: #1a1204;
+  border-color: #c9a227;
+  box-shadow: 0 4px 0 #c9a227;
+  font-size: 18px;
+  padding: 12px 10px;
 }
 
 .btn-level2 {

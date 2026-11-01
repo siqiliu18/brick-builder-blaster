@@ -38,6 +38,24 @@
       </header>
       <div id="layout">
         <aside id="toolbar">
+          <div class="build-only name-box">
+            <button type="button" id="btn-name" class="btn btn-name">Enter Name</button>
+            <p id="name-current" class="name-current hidden"></p>
+            <form id="name-form" class="name-form hidden" autocomplete="off">
+              <input
+                id="name-input"
+                type="text"
+                name="player-name"
+                maxlength="12"
+                enterkeyhint="done"
+                autocomplete="nickname"
+                autocapitalize="words"
+                spellcheck="false"
+                aria-label="Your name"
+                placeholder="Your name"
+              />
+            </form>
+          </div>
           <div class="build-only tool-scroll">
             <h2>Tools</h2>
             <button type="button" class="tool is-selected" data-tool="B" id="tool-brick" aria-pressed="true">

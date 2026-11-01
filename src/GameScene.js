@@ -37,6 +37,7 @@ import {
 import { buildTextures } from './textures.js';
 import { clearFx, flashScreen, popText, spawnBurst, updateFx } from './fx.js';
 import { playGrunt, playShot, syncMoveSound } from './audio.js';
+import { getPlayerName, nameTagOffset } from './name.js';
 
 const DRAG_TOOLS = new Set(['B', 'W']);
 
@@ -340,6 +341,7 @@ export class GameScene extends Phaser.Scene {
       container.blaster = null;
       container.riding = true;
       container.seatY = -18;
+      this.attachNameTag(container, true);
       return container;
     }
     const body = this.add.image(0, 0, 'player').setDisplaySize(40, 40);
@@ -349,7 +351,30 @@ export class GameScene extends Phaser.Scene {
     container.blaster = blaster;
     container.riding = false;
     container.seatY = 0;
+    this.attachNameTag(container, false);
     return container;
+  }
+
+  attachNameTag(container, riding) {
+    const name = getPlayerName();
+    if (!name) return;
+    const label = this.add
+      .text(0, 0, name, {
+        fontFamily: 'Verdana, Trebuchet MS, sans-serif',
+        fontSize: '14px',
+        fontStyle: 'bold',
+        color: '#142033',
+      })
+      .setOrigin(0.5);
+    const width = Math.ceil(label.width + 16);
+    const height = Math.ceil(label.height + 8);
+    const plate = this.add.graphics();
+    plate.fillStyle(0xffffff, 1);
+    plate.fillRoundedRect(-width / 2, -height / 2, width, height, 8);
+    plate.lineStyle(2, 0x142033, 1);
+    plate.strokeRoundedRect(-width / 2, -height / 2, width, height, 8);
+    const tag = this.add.container(0, nameTagOffset(riding), [plate, label]);
+    container.add(tag);
   }
 
   makeEnemy(cell, kind) {
