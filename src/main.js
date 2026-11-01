@@ -185,8 +185,8 @@ async function boot() {
     shoot: helpShoot.innerHTML,
   };
   const level3Help = {
-    walls: 'Level 3 is a 3D test of the Level 1 layout. Blue boxes are solid walls. Red boxes are bricks.',
-    hearts: 'Orange boxes are monsters. They chase you. Shoot them with the red stick.',
+    walls: 'Level 3 is a 3D test of the Level 1 layout. Brown brick walls are solid. Colored bricks are the red walls.',
+    hearts: 'Orange and purple monsters chase you. Shoot them with the red stick.',
     goal: 'This is a test scene. Back to build returns to the menu.',
     move: helpMove.innerHTML,
     shoot: helpShoot.innerHTML,
