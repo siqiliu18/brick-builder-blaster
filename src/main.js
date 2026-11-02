@@ -188,8 +188,8 @@ async function boot() {
     walls: 'Level 3 is a 3D test of the Level 1 layout. Brown brick walls are solid. Colored bricks are the red walls.',
     hearts: 'Orange and purple monsters chase you. Shoot them with the red stick.',
     goal: 'This is a test scene. Back to build returns to the menu.',
-    move: helpMove.innerHTML,
-    shoot: helpShoot.innerHTML,
+    move: '<b>Move</b> with the left stick or WASD. Up goes toward the top of the screen, and the tank turns to face that way.',
+    shoot: '<b>Shoot</b> with the right stick the same way, or touch the ground where you want the shot to go. Hold to keep firing.',
   };
   const level2Help = {
     walls: 'Blue walls make the maze. Shoot the red gate to open it. A red brick hides a bonus coin.',

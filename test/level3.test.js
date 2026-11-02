@@ -4,8 +4,11 @@ import { readFileSync } from 'node:fs';
 import { TILE, jaspersLevel, summarize } from '../src/level.js';
 import {
   EXTRA_MONSTER_TILES,
+  FIXED_CAMERA,
+  angleTowardGround,
   createLevel3World,
   stepBullet,
+  stickAngle,
 } from '../src/level3-sim.js';
 
 test('Level 3 builds 3D boxes from the Level 1 layout and a few monsters', () => {
@@ -34,6 +37,16 @@ test('a Level 3 shot hits a monster and stops on a wall', () => {
 
   const wall = { x: 60, y: 20, angle: 0 };
   assert.equal(stepBullet(wall, 0.01, world.grid, world.monsters), 'wall');
+});
+
+test('Level 3 stick up is screen up, and a tap north of the tank aims that way', () => {
+  assert.equal(FIXED_CAMERA.x, 0);
+  assert.ok(FIXED_CAMERA.south > 0);
+  assert.ok(FIXED_CAMERA.height > FIXED_CAMERA.south);
+  assert.ok(Math.abs(stickAngle(0, -1) - (-Math.PI / 2)) < 1e-9);
+  assert.ok(Math.abs(stickAngle(1, 0)) < 1e-9);
+  const aim = angleTowardGround(100, 100, 100 / TILE, 40 / TILE, TILE);
+  assert.ok(Math.abs(aim - (-Math.PI / 2)) < 1e-9);
 });
 
 test('the menu keeps Level 1 and Level 2 and adds Level 3 (3D)', () => {

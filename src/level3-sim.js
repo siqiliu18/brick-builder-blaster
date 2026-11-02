@@ -11,6 +11,23 @@ export const BULLET_SPEED = 560;
 export const BULLET_HIT = 22;
 export const MONSTER_HP = 2;
 
+/**
+ * Fixed follow camera, in tile units. It sits south of the hero and looks north,
+ * and this offset never changes with aim or movement, so the view does not spin.
+ * Screen up is world -y, which is also stick up and the W key.
+ */
+export const FIXED_CAMERA = { x: 0, height: 10, south: 6.5 };
+
+/** Stick vector in screen space: +x right, +y down, same as the 2D game. */
+export function stickAngle(x, y) {
+  return Math.atan2(y, x);
+}
+
+/** World aim from a point on the ground. groundX/groundZ are tile-space Three.js coordinates. */
+export function angleTowardGround(playerX, playerY, groundX, groundZ, tile) {
+  return Math.atan2(groundZ * tile - playerY, groundX * tile - playerX);
+}
+
 function center(tx, ty) {
   return { x: tx * TILE + TILE / 2, y: ty * TILE + TILE / 2 };
 }

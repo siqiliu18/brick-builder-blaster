@@ -9,11 +9,10 @@ import {
   moveBody,
   separateEnemies,
 } from './sim.js';
-import { resolveAim } from './aim.js';
 import { aimVector, isDown, stickVector } from './input.js';
 import { playGrunt, playShot, syncMoveSound } from './audio.js';
 import { getPlayerName } from './name.js';
-import { createLevel3World, stepBullet } from './level3-sim.js';
+import { FIXED_CAMERA, angleTowardGround, createLevel3World, stepBullet, stickAngle } from './level3-sim.js';
 
 const SHOT_GAP = 260;
 
@@ -417,9 +416,26 @@ function runLevel3(root, { onSmash }) {
   const observer = new ResizeObserver(resize);
   observer.observe(root);
 
-  const heroScreen = new THREE.Vector3();
   let last = performance.now();
   let frame = 0;
+
+  const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+  const raycaster = new THREE.Raycaster();
+  const ndc = new THREE.Vector2();
+  const groundHit = new THREE.Vector3();
+
+  function groundShot() {
+    if (!pointer.inside && !pointer.down) return { angle: aimAngle, fire: false };
+    const rect = canvas.getBoundingClientRect();
+    if (rect.width < 1 || rect.height < 1) return { angle: aimAngle, fire: false };
+    ndc.x = ((pointer.x - rect.left) / rect.width) * 2 - 1;
+    ndc.y = -((pointer.y - rect.top) / rect.height) * 2 + 1;
+    raycaster.setFromCamera(ndc, camera);
+    const hit = raycaster.ray.intersectPlane(groundPlane, groundHit);
+    if (!hit) return { angle: aimAngle, fire: false };
+    const angle = angleTowardGround(player.x, player.y, hit.x, hit.z, TILE);
+    return { angle, fire: pointer.down && pointer.onBoard };
+  }
 
   function placeHero() {
     hero.position.set(player.x / TILE, 0, player.y / TILE);
@@ -469,22 +485,10 @@ function runLevel3(root, { onSmash }) {
     );
     syncMoveSound(dt, moving, false);
 
-    const rect = canvas.getBoundingClientRect();
-    heroScreen.set(player.x / TILE, 0.5, player.y / TILE).project(camera);
-    const hx = (heroScreen.x * 0.5 + 0.5) * rect.width + rect.left;
-    const hy = (-heroScreen.y * 0.5 + 0.5) * rect.height + rect.top;
     const aim = aimVector();
-    const shot = resolveAim({
-      touchControls: document.body.classList.contains('touch-ui'),
-      aimX: aim.x,
-      aimY: aim.y,
-      aimOn: aim.on,
-      lastAim: aimAngle,
-      pointerInside: pointer.inside,
-      pointerDown: pointer.down,
-      pointerOnBoard: pointer.onBoard,
-      pointerAngle: Math.atan2(pointer.y - hy, pointer.x - hx),
-    });
+    const shot = aim.on
+      ? { angle: Math.hypot(aim.x, aim.y) > 0.22 ? stickAngle(aim.x, aim.y) : aimAngle, fire: true }
+      : groundShot();
     aimAngle = shot.angle;
     if (shot.fire && now >= nextShot) {
       nextShot = now + SHOT_GAP;
@@ -522,23 +526,24 @@ function runLevel3(root, { onSmash }) {
     }
 
     placeHero();
-    const dist = 8;
+    const focusX = player.x / TILE;
+    const focusZ = player.y / TILE;
     camera.position.lerp(
-      new THREE.Vector3(
-        player.x / TILE - Math.cos(aimAngle) * dist,
-        7,
-        player.y / TILE - Math.sin(aimAngle) * dist,
-      ),
+      new THREE.Vector3(focusX + FIXED_CAMERA.x, FIXED_CAMERA.height, focusZ + FIXED_CAMERA.south),
       1 - Math.exp(-5 * dt),
     );
-    camera.lookAt(player.x / TILE, 0.5, player.y / TILE);
+    camera.lookAt(focusX, 0.3, focusZ);
     renderer.render(scene, camera);
     frame = requestAnimationFrame(tick);
   }
 
   placeHero();
-  camera.position.set(player.x / TILE - 8, 7, player.y / TILE);
-  camera.lookAt(player.x / TILE, 0.5, player.y / TILE);
+  camera.position.set(
+    player.x / TILE + FIXED_CAMERA.x,
+    FIXED_CAMERA.height,
+    player.y / TILE + FIXED_CAMERA.south,
+  );
+  camera.lookAt(player.x / TILE, 0.3, player.y / TILE);
   frame = requestAnimationFrame(tick);
 
   return {
