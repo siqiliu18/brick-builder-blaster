@@ -41,19 +41,47 @@ export function createLevel3World(rows) {
   const blocks = [];
   const monsters = [];
   let spawn = center(2, 2);
+  let goal = null;
   for (let ty = 0; ty < ROWS; ty++) {
     for (let tx = 0; tx < COLS; tx++) {
       const ch = grid[ty][tx];
       if (ch === 'B' || ch === 'W') blocks.push({ tx, ty, kind: ch });
       else if (ch === 'S') spawn = center(tx, ty);
+      else if (ch === 'F') goal = { tx, ty, ...center(tx, ty) };
       else if (ch === 'E') monsters.push({ ...center(tx, ty), hp: MONSTER_HP, alive: true, fromLayout: true });
     }
   }
+  if (!goal) goal = farthestOpenTile(grid, spawn);
   for (const [tx, ty] of EXTRA_MONSTER_TILES) {
     if (grid[ty]?.[tx] !== '.') continue;
+    if (tx === goal.tx && ty === goal.ty) continue;
     monsters.push({ ...center(tx, ty), hp: MONSTER_HP, alive: true, fromLayout: false });
   }
-  return { grid, blocks, monsters, spawn };
+  return { grid, blocks, monsters, spawn, goal };
+}
+
+/** The tank wins when its center is on the goal tile. */
+export function reachedGoal(player, goal) {
+  if (!player || !goal) return false;
+  return Math.floor(player.x / TILE) === goal.tx && Math.floor(player.y / TILE) === goal.ty;
+}
+
+function farthestOpenTile(grid, spawn) {
+  let best = { tx: 2, ty: 2, ...center(2, 2) };
+  let bestDist = -1;
+  for (let ty = 0; ty < ROWS; ty++) {
+    for (let tx = 0; tx < COLS; tx++) {
+      const ch = grid[ty][tx];
+      if (ch === 'B' || ch === 'W') continue;
+      const spot = center(tx, ty);
+      const dist = Math.hypot(spot.x - spawn.x, spot.y - spawn.y);
+      if (dist > bestDist) {
+        bestDist = dist;
+        best = { tx, ty, ...spot };
+      }
+    }
+  }
+  return best;
 }
 
 /** Move a shot and report wall, hit, defeat, or fly. A hit lowers that monster's hp. */

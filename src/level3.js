@@ -12,7 +12,7 @@ import {
 import { aimVector, isDown, stickVector } from './input.js';
 import { playGrunt, playShot, syncMoveSound } from './audio.js';
 import { getPlayerName } from './name.js';
-import { FIXED_CAMERA, angleTowardGround, createLevel3World, stepBullet, stickAngle } from './level3-sim.js';
+import { FIXED_CAMERA, angleTowardGround, createLevel3World, reachedGoal, stepBullet, stickAngle } from './level3-sim.js';
 
 const SHOT_GAP = 260;
 
@@ -229,6 +229,43 @@ function makeMonster(color, eyeMat, pupilMat, eyeGeo, pupilGeo, bodyGeo) {
   return { group, bodyMat: body.material };
 }
 
+function makeFinish(goal, disposables) {
+  const group = new THREE.Group();
+  group.position.set(goal.tx + 0.5, 0, goal.ty + 0.5);
+  const checker = makeCanvasTexture((ctx, size) => {
+    const cells = 8;
+    const cell = size / cells;
+    for (let y = 0; y < cells; y++) {
+      for (let x = 0; x < cells; x++) {
+        ctx.fillStyle = (x + y) % 2 === 0 ? '#f7f7f7' : '#1a1a1a';
+        ctx.fillRect(x * cell, y * cell, cell, cell);
+      }
+    }
+  }, 64);
+  const stripMat = new THREE.MeshBasicMaterial({ map: checker });
+  const strip = new THREE.Mesh(new THREE.PlaneGeometry(0.96, 0.46), stripMat);
+  strip.rotation.x = -Math.PI / 2;
+  strip.position.y = 0.035;
+  const poleMat = lambert(0xf4f4f4);
+  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.045, 0.95, 6), poleMat);
+  pole.position.set(-0.32, 0.48, 0);
+  const cap = new THREE.Mesh(new THREE.SphereGeometry(0.06, 8, 6), lambert(0xffe14a));
+  cap.position.set(-0.32, 0.98, 0);
+  const flag = new THREE.Group();
+  flag.position.set(-0.28, 0.82, 0);
+  const cloth = lambert(0x1e88e5);
+  const band = lambert(0xffe14a);
+  for (let i = 0; i < 3; i++) {
+    const piece = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.28, 0.05), i === 1 ? band : cloth);
+    piece.position.set(0.1 + i * 0.15, Math.sin(i * 1.2) * 0.05, 0.02);
+    flag.add(piece);
+    disposables.push(piece.geometry);
+  }
+  group.add(strip, pole, cap, flag);
+  disposables.push(checker, stripMat, strip.geometry, poleMat, pole.geometry, cap.material, cap.geometry, cloth, band);
+  return { group, flag };
+}
+
 function nameSprite(text) {
   const canvas = document.createElement('canvas');
   canvas.width = 256;
@@ -281,7 +318,7 @@ export function mountLevel3(root, { onExit, onSmash } = {}) {
   }
 }
 
-function runLevel3(root, { onSmash }) {
+function runLevel3(root, { onExit, onSmash }) {
   const world = createLevel3World(jaspersLevel());
   const player = { x: world.spawn.x, y: world.spawn.y };
   const monsters = world.monsters.map((monster) => ({ ...monster, speed: MAD_MIN_SPEED }));
@@ -291,6 +328,7 @@ function runLevel3(root, { onSmash }) {
   let nextShot = 0;
   let smashed = 0;
   let running = true;
+  let won = false;
 
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0xc5d4e0);
@@ -345,6 +383,9 @@ function runLevel3(root, { onSmash }) {
     disposables.push(tag.material.map, tag.material);
   }
   scene.add(hero);
+
+  const finish = makeFinish(world.goal, disposables);
+  scene.add(finish.group);
 
   const bodyGeo = new THREE.SphereGeometry(0.32, 12, 10);
   const eyeGeo = new THREE.SphereGeometry(0.09, 8, 6);
@@ -456,10 +497,33 @@ function runLevel3(root, { onSmash }) {
     playShot();
   }
 
+  function showWin() {
+    const wrap = document.createElement('div');
+    wrap.className = 'level3-win';
+    const title = document.createElement('h2');
+    const name = getPlayerName();
+    title.textContent = name ? `${name}, you win!` : 'You win!';
+    const note = document.createElement('p');
+    note.textContent = 'You reached the finish flag!';
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'btn btn-go';
+    button.textContent = 'Back to menu';
+    button.addEventListener('click', () => onExit?.());
+    wrap.append(title, note, button);
+    root.append(wrap);
+  }
+
   function tick(now) {
     if (!running) return;
     const dt = Math.min(0.05, (now - last) / 1000);
     last = now;
+    finish.flag.rotation.z = Math.sin(now / 220) * 0.35;
+    if (won) {
+      renderer.render(scene, camera);
+      frame = requestAnimationFrame(tick);
+      return;
+    }
 
     let ix = 0;
     let iy = 0;
@@ -484,6 +548,13 @@ function runLevel3(root, { onSmash }) {
       world.grid,
     );
     syncMoveSound(dt, moving, false);
+    if (reachedGoal(player, world.goal)) {
+      won = true;
+      showWin();
+      renderer.render(scene, camera);
+      frame = requestAnimationFrame(tick);
+      return;
+    }
 
     const aim = aimVector();
     const shot = aim.on

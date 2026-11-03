@@ -1,12 +1,13 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
-import { TILE, jaspersLevel, summarize } from '../src/level.js';
+import { COLS, ROWS, TILE, blankRows, jaspersLevel, summarize } from '../src/level.js';
 import {
   EXTRA_MONSTER_TILES,
   FIXED_CAMERA,
   angleTowardGround,
   createLevel3World,
+  reachedGoal,
   stepBullet,
   stickAngle,
 } from '../src/level3-sim.js';
@@ -47,6 +48,32 @@ test('Level 3 stick up is screen up, and a tap north of the tank aims that way',
   assert.ok(Math.abs(stickAngle(1, 0)) < 1e-9);
   const aim = angleTowardGround(100, 100, 100 / TILE, 40 / TILE, TILE);
   assert.ok(Math.abs(aim - (-Math.PI / 2)) < 1e-9);
+});
+
+test('Level 3 goal is the flag tile, and standing on it wins', () => {
+  const rows = jaspersLevel();
+  let fx = -1;
+  let fy = -1;
+  for (let y = 0; y < rows.length; y++) {
+    const x = rows[y].indexOf('F');
+    if (x >= 0) {
+      fx = x;
+      fy = y;
+    }
+  }
+  const world = createLevel3World(rows);
+  assert.equal(world.goal.tx, fx);
+  assert.equal(world.goal.ty, fy);
+  assert.equal(reachedGoal({ x: world.goal.x, y: world.goal.y }, world.goal), true);
+  assert.equal(reachedGoal({ x: world.spawn.x, y: world.spawn.y }, world.goal), false);
+  assert.equal(reachedGoal({ x: world.goal.x + TILE, y: world.goal.y }, world.goal), false);
+
+  const empty = blankRows();
+  empty[2] = `${empty[2].slice(0, 2)}S${empty[2].slice(3)}`;
+  const fallback = createLevel3World(empty);
+  assert.equal(fallback.goal.tx, COLS - 1);
+  assert.equal(fallback.goal.ty, ROWS - 1);
+  assert.equal(reachedGoal({ x: fallback.goal.x, y: fallback.goal.y }, fallback.goal), true);
 });
 
 test('the menu keeps Level 1 and Level 2 and adds Level 3 (3D)', () => {

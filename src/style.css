@@ -424,6 +424,35 @@ h2 { margin: 0 0 4px; font-size: 16px; }
   max-width: 340px;
   font-size: 18px;
 }
+
+.level3-win {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 24px;
+  text-align: center;
+  background: rgba(8, 16, 24, 0.45);
+}
+
+.level3-win h2 {
+  margin: 0;
+  font-size: 48px;
+  line-height: 1;
+  color: #ffe14a;
+  text-shadow: 0 4px 0 #081018;
+}
+
+.level3-win p {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 800;
+  color: white;
+}
 #game canvas { touch-action: none; }
 #game canvas:focus { outline: none; }
 
