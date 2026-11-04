@@ -14,7 +14,9 @@ import {
   ALLY_HP,
   advanceSpawner,
   applyContact,
-  canCallAlly,
+  MAX_ALLIES,
+  allySpawnNear,
+  canAddAlly,
   pickSpawnPoint,
   stepAlly,
   reachedGoal,
@@ -161,9 +163,15 @@ test('the rainbow ally shoots a monster it can see and pops when bumped', () => 
   assert.equal(playerHp, 3);
   const fatal = applyContact({ x: 100, y: 100 }, [{ x: 100, y: 108, alive: true }], 1);
   assert.equal(fatal.dead, true);
-  assert.equal(canCallAlly({ alive: true }), false);
-  assert.equal(canCallAlly(null), true);
-  assert.equal(canCallAlly({ alive: false }), true);
+  assert.equal(canAddAlly(0), true);
+  assert.equal(canAddAlly(MAX_ALLIES - 1), true);
+  assert.equal(canAddAlly(MAX_ALLIES), false);
+  assert.equal(canAddAlly(MAX_ALLIES + 2), false);
+  const open = blankRows().map((row) => row.split(''));
+  const here = { x: 200, y: 200 };
+  const first = allySpawnNear(here, open, []);
+  const second = allySpawnNear(here, open, [{ ...first, alive: true }]);
+  assert.ok(Math.hypot(first.x - second.x, first.y - second.y) >= 36);
 });
 
 test('the menu keeps Level 1 and Level 2 and adds Level 3 (3D)', () => {

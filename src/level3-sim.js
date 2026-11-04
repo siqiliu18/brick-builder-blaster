@@ -20,6 +20,7 @@ export const TANK_HP = 3;
 export const ALLY_HP = 3;
 export const ALLY_SHOT_GAP = 0.26;
 export const ALLY_STANDOFF = 56;
+export const MAX_ALLIES = 5;
 
 /**
  * Fixed follow camera, in tile units. It sits south of the hero and looks north,
@@ -161,8 +162,9 @@ export function applyContact(player, monsters, hp) {
   return { hp: next, popped, dead: popped.length > 0 && next <= 0 };
 }
 
-export function canCallAlly(ally) {
-  return !ally?.alive;
+/** True until this Level 3 run has already spawned MAX_ALLIES rainbow tanks. Deaths do not refund a press. */
+export function canAddAlly(spawnedCount) {
+  return Number(spawnedCount) < MAX_ALLIES;
 }
 
 export function nearestMonster(origin, monsters) {
@@ -179,22 +181,32 @@ export function nearestMonster(origin, monsters) {
   return best;
 }
 
-/** Stand beside the player on open floor. */
-export function allySpawnNear(player, grid) {
-  const tries = [
-    [48, 0],
-    [-48, 0],
-    [0, 48],
-    [0, -48],
-    [36, 36],
-    [-36, 36],
-  ];
+/** Stand beside the player on open floor, not on top of another ally. */
+export function allySpawnNear(player, grid, allies = []) {
+  const taken = (allies || []).filter((ally) => ally?.alive);
+  const tries = [];
+  for (let ring = 1; ring <= 4; ring++) {
+    const step = 42 * ring;
+    tries.push(
+      [step, 0],
+      [-step, 0],
+      [0, step],
+      [0, -step],
+      [step, step],
+      [-step, step],
+      [step, -step],
+      [-step, -step],
+    );
+  }
   for (const [dx, dy] of tries) {
     const x = player.x + dx;
     const y = player.y + dy;
-    if (!isBlocked(grid, x, y, PLAYER_HALF)) return { x, y };
+    if (isBlocked(grid, x, y, PLAYER_HALF)) continue;
+    const stacked = taken.some((ally) => Math.hypot(ally.x - x, ally.y - y) < 36);
+    if (stacked) continue;
+    return { x, y };
   }
-  return { x: player.x, y: player.y };
+  return { x: player.x + 48, y: player.y };
 }
 
 /**

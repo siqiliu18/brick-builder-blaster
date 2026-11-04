@@ -21,6 +21,8 @@ import {
   createLevel3World,
   reachedGoal,
   ALLY_HP,
+  MAX_ALLIES,
+  canAddAlly,
   stepAlly,
   allySpawnNear,
   stepBullet,
@@ -369,7 +371,8 @@ function runLevel3(root, { onExit, onSmash, onHealth }) {
   let lost = false;
   let hp = TANK_HP;
   let spawnTimer = 0;
-  let ally = null;
+  const allies = [];
+  let alliesCalled = 0;
 
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0xc5d4e0);
@@ -408,9 +411,14 @@ function runLevel3(root, { onExit, onSmash, onHealth }) {
   }
 
   const { hero, hull, turret } = makeTank(disposables);
-  const rainbowTank = makeTank(disposables, { rainbow: true, rider: false });
-  rainbowTank.hero.visible = false;
-  scene.add(rainbowTank.hero);
+  const allyTanks = [];
+  for (let i = 0; i < MAX_ALLIES; i++) {
+    const tank = makeTank(disposables, { rainbow: true, rider: false });
+    tank.hero.visible = false;
+    tank.used = false;
+    scene.add(tank.hero);
+    allyTanks.push(tank);
+  }
   const shadowTex = makeCanvasTexture((ctx, size) => {
     const fade = ctx.createRadialGradient(size / 2, size / 2, size * 0.08, size / 2, size / 2, size * 0.48);
     fade.addColorStop(0, 'rgba(30, 40, 50, 0.4)');
@@ -597,28 +605,45 @@ function runLevel3(root, { onExit, onSmash, onHealth }) {
   }
 
   function summonAlly() {
-    if (ally?.alive) return;
-    const spot = allySpawnNear(player, world.grid);
-    ally = {
+    if (!canAddAlly(alliesCalled)) {
+      allyButton.disabled = true;
+      return;
+    }
+    const tank = allyTanks.find((item) => !item.used);
+    if (!tank) {
+      allyButton.disabled = true;
+      return;
+    }
+    const spot = allySpawnNear(player, world.grid, allies);
+    tank.used = true;
+    tank.hero.visible = true;
+    allies.push({
       x: spot.x,
       y: spot.y,
       facing: moveFacing,
       cooldown: 0.2,
       hp: ALLY_HP,
       alive: true,
-    };
-    rainbowTank.hero.visible = true;
-    allyButton.disabled = true;
+      tank,
+    });
+    alliesCalled += 1;
+    if (!canAddAlly(alliesCalled)) allyButton.disabled = true;
   }
 
-  function syncAlly() {
-    const alive = Boolean(ally?.alive);
-    rainbowTank.hero.visible = alive;
-    allyButton.disabled = alive;
-    if (!alive) return;
-    rainbowTank.hero.position.set(ally.x / TILE, 0, ally.y / TILE);
-    rainbowTank.hull.rotation.y = -ally.facing;
-    rainbowTank.turret.rotation.y = -ally.facing;
+  function syncAllies() {
+    for (let i = allies.length - 1; i >= 0; i--) {
+      const ally = allies[i];
+      if (!ally.alive) {
+        ally.tank.hero.visible = false;
+        ally.tank.used = false;
+        allies.splice(i, 1);
+        continue;
+      }
+      ally.tank.hero.visible = true;
+      ally.tank.hero.position.set(ally.x / TILE, 0, ally.y / TILE);
+      ally.tank.hull.rotation.y = -ally.facing;
+      ally.tank.turret.rotation.y = -ally.facing;
+    }
   }
 
   function spawnBullet(angle, from = player) {
@@ -721,7 +746,8 @@ function runLevel3(root, { onExit, onSmash, onHealth }) {
       monsters.push(spawn.spawned);
       attachMonster(spawn.spawned);
     }
-    if (ally?.alive) {
+    for (const ally of allies) {
+      if (!ally.alive) continue;
       const action = stepAlly(ally, monsters, dt, world.grid);
       if (action.fire) spawnBullet(action.aim, ally);
       const allyHit = applyContact(ally, monsters, ally.hp);
@@ -779,7 +805,7 @@ function runLevel3(root, { onExit, onSmash, onHealth }) {
       monster.mesh.rotation.y = -face;
     }
 
-    syncAlly();
+    syncAllies();
     placeHero();
     const focusX = player.x / TILE;
     const focusZ = player.y / TILE;
