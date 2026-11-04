@@ -317,6 +317,7 @@ async function boot() {
         onSmash: (count) => {
           document.getElementById('hud-enemies').textContent = `Smashed ${count}`;
         },
+        onHealth: (health) => renderHearts(health),
       });
       game?.scene.pause('game');
     } catch (error) {

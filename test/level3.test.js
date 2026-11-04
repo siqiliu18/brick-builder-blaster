@@ -7,6 +7,13 @@ import {
   FIXED_CAMERA,
   angleTowardGround,
   createLevel3World,
+  CONTACT_DAMAGE,
+  MAX_ALIVE,
+  SPAWN_EVERY,
+  TANK_HP,
+  advanceSpawner,
+  applyContact,
+  pickSpawnPoint,
   reachedGoal,
   stepBullet,
   stickAngle,
@@ -74,6 +81,55 @@ test('Level 3 goal is the flag tile, and standing on it wins', () => {
   assert.equal(fallback.goal.tx, COLS - 1);
   assert.equal(fallback.goal.ty, ROWS - 1);
   assert.equal(reachedGoal({ x: fallback.goal.x, y: fallback.goal.y }, fallback.goal), true);
+});
+
+test('Level 3 monsters keep spawning up to a cap, away from the tank', () => {
+  const world = createLevel3World(jaspersLevel());
+  const points = world.monsters.map((monster) => ({ x: monster.x, y: monster.y }));
+  const player = { x: world.spawn.x, y: world.spawn.y };
+  const spot = pickSpawnPoint(points, player, () => 0);
+  assert.ok(Math.hypot(spot.x - player.x, spot.y - player.y) >= 140);
+
+  const alive = Array.from({ length: MAX_ALIVE }, (_, index) => ({
+    x: points[index % points.length].x,
+    y: points[index % points.length].y,
+    alive: true,
+  }));
+  const full = advanceSpawner(SPAWN_EVERY, 1, alive, player, points, () => 0);
+  assert.equal(full.spawned, null);
+
+  const empty = [];
+  const first = advanceSpawner(0, SPAWN_EVERY, empty, player, points, () => 0);
+  assert.ok(first.spawned);
+  assert.equal(first.spawned.alive, true);
+  assert.equal(first.timer, 0);
+  empty.push(first.spawned);
+  const tooSoon = advanceSpawner(first.timer, SPAWN_EVERY / 2, empty, player, points, () => 0);
+  assert.equal(tooSoon.spawned, null);
+  const again = advanceSpawner(tooSoon.timer, SPAWN_EVERY, [], player, points, () => 0);
+  assert.ok(again.spawned);
+});
+
+test('a Level 3 monster that touches the tank pops and costs one heart', () => {
+  const player = { x: 100, y: 100 };
+  const touching = { x: 110, y: 100, alive: true, hp: 2 };
+  const far = { x: 400, y: 100, alive: true, hp: 2 };
+  const hit = applyContact(player, [touching, far], TANK_HP);
+  assert.equal(hit.hp, TANK_HP - CONTACT_DAMAGE);
+  assert.equal(hit.dead, false);
+  assert.equal(touching.alive, false);
+  assert.equal(far.alive, true);
+  assert.equal(hit.popped.length, 1);
+
+  const crowd = [
+    { x: 100, y: 100, alive: true },
+    { x: 108, y: 108, alive: true },
+    { x: 90, y: 100, alive: true },
+  ];
+  const wiped = applyContact(player, crowd, TANK_HP);
+  assert.equal(wiped.hp, 0);
+  assert.equal(wiped.dead, true);
+  assert.equal(crowd.every((monster) => !monster.alive), true);
 });
 
 test('the menu keeps Level 1 and Level 2 and adds Level 3 (3D)', () => {

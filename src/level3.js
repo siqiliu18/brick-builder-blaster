@@ -12,7 +12,17 @@ import {
 import { aimVector, isDown, stickVector } from './input.js';
 import { playGrunt, playShot, syncMoveSound } from './audio.js';
 import { getPlayerName } from './name.js';
-import { FIXED_CAMERA, angleTowardGround, createLevel3World, reachedGoal, stepBullet, stickAngle } from './level3-sim.js';
+import {
+  FIXED_CAMERA,
+  TANK_HP,
+  advanceSpawner,
+  angleTowardGround,
+  applyContact,
+  createLevel3World,
+  reachedGoal,
+  stepBullet,
+  stickAngle,
+} from './level3-sim.js';
 
 const SHOT_GAP = 260;
 
@@ -318,17 +328,22 @@ export function mountLevel3(root, { onExit, onSmash } = {}) {
   }
 }
 
-function runLevel3(root, { onExit, onSmash }) {
+function runLevel3(root, { onExit, onSmash, onHealth }) {
   const world = createLevel3World(jaspersLevel());
   const player = { x: world.spawn.x, y: world.spawn.y };
   const monsters = world.monsters.map((monster) => ({ ...monster, speed: MAD_MIN_SPEED }));
+  const spawnPoints = monsters.map((monster) => ({ x: monster.x, y: monster.y }));
   const bullets = [];
+  const bursts = [];
   let aimAngle = 0;
   let moveFacing = 0;
   let nextShot = 0;
   let smashed = 0;
   let running = true;
   let won = false;
+  let lost = false;
+  let hp = TANK_HP;
+  let spawnTimer = 0;
 
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0xc5d4e0);
@@ -399,12 +414,54 @@ function runLevel3(root, { onExit, onSmash }) {
     built.group.add(blobShadow(shadowTex, 0.7, 0.55, disposables));
     disposables.push(built.bodyMat);
     monster.mesh = built.group;
+    built.group.position.set(monster.x / TILE, 0, monster.y / TILE);
     scene.add(built.group);
   });
 
   const bulletGeo = new THREE.SphereGeometry(0.09, 8, 6);
   const bulletMat = lambert(0xffd000);
-  disposables.push(bulletGeo, bulletMat);
+  const burstGeo = new THREE.SphereGeometry(0.08, 6, 5);
+  const burstMat = lambert(0xffb300);
+  disposables.push(bulletGeo, bulletMat, burstGeo, burstMat);
+
+  function attachMonster(monster) {
+    const color = monster.fromLayout || monsters.length % 2 === 0 ? 0xff6d00 : 0x7b1fa2;
+    const built = makeMonster(color, eyeMat, pupilMat, eyeGeo, pupilGeo, bodyGeo);
+    built.group.add(blobShadow(shadowTex, 0.7, 0.55, disposables));
+    disposables.push(built.bodyMat);
+    monster.mesh = built.group;
+    monster.speed = MAD_MIN_SPEED;
+    built.group.position.set(monster.x / TILE, 0, monster.y / TILE);
+    scene.add(built.group);
+  }
+
+  function explode(monster) {
+    const group = new THREE.Group();
+    group.position.set(monster.x / TILE, 0.35, monster.y / TILE);
+    for (let i = 0; i < 6; i++) {
+      const bit = new THREE.Mesh(burstGeo, burstMat);
+      const angle = (i / 6) * Math.PI * 2;
+      bit.position.set(Math.cos(angle) * 0.12, 0.25, Math.sin(angle) * 0.12);
+      group.add(bit);
+    }
+    scene.add(group);
+    bursts.push({ group, life: 0.4, max: 0.4 });
+    if (monster.mesh) scene.remove(monster.mesh);
+    monster.mesh = null;
+  }
+
+  function updateBursts(dt) {
+    for (let i = bursts.length - 1; i >= 0; i--) {
+      const burst = bursts[i];
+      burst.life -= dt;
+      const grown = 1 + (1 - burst.life / burst.max) * 2.4;
+      burst.group.scale.setScalar(grown);
+      if (burst.life <= 0) {
+        scene.remove(burst.group);
+        bursts.splice(i, 1);
+      }
+    }
+  }
 
   const camera = new THREE.PerspectiveCamera(55, 1, 0.1, 80);
   const renderer = new THREE.WebGLRenderer({ antialias: false, alpha: false, powerPreference: 'low-power' });
@@ -497,14 +554,13 @@ function runLevel3(root, { onExit, onSmash }) {
     playShot();
   }
 
-  function showWin() {
+  function showOverlay(titleText, noteText) {
     const wrap = document.createElement('div');
     wrap.className = 'level3-win';
     const title = document.createElement('h2');
-    const name = getPlayerName();
-    title.textContent = name ? `${name}, you win!` : 'You win!';
+    title.textContent = titleText;
     const note = document.createElement('p');
-    note.textContent = 'You reached the finish flag!';
+    note.textContent = noteText;
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'btn btn-go';
@@ -514,12 +570,23 @@ function runLevel3(root, { onExit, onSmash }) {
     root.append(wrap);
   }
 
+  function showWin() {
+    const name = getPlayerName();
+    showOverlay(name ? `${name}, you win!` : 'You win!', 'You reached the finish flag!');
+  }
+
+  function showLose() {
+    const name = getPlayerName();
+    showOverlay('Try again', name ? `${name}, the monsters got the tank.` : 'The monsters got the tank.');
+  }
+
   function tick(now) {
     if (!running) return;
     const dt = Math.min(0.05, (now - last) / 1000);
     last = now;
     finish.flag.rotation.z = Math.sin(now / 220) * 0.35;
-    if (won) {
+    updateBursts(dt);
+    if (won || lost) {
       renderer.render(scene, camera);
       frame = requestAnimationFrame(tick);
       return;
@@ -555,6 +622,25 @@ function runLevel3(root, { onExit, onSmash }) {
       frame = requestAnimationFrame(tick);
       return;
     }
+    const contact = applyContact(player, monsters, hp);
+    if (contact.popped.length) {
+      hp = contact.hp;
+      for (const monster of contact.popped) explode(monster);
+      onHealth?.(hp);
+      if (contact.dead) {
+        lost = true;
+        showLose();
+        renderer.render(scene, camera);
+        frame = requestAnimationFrame(tick);
+        return;
+      }
+    }
+    const spawn = advanceSpawner(spawnTimer, dt, monsters, player, spawnPoints);
+    spawnTimer = spawn.timer;
+    if (spawn.spawned) {
+      monsters.push(spawn.spawned);
+      attachMonster(spawn.spawned);
+    }
 
     const aim = aimVector();
     const shot = aim.on
@@ -589,8 +675,15 @@ function runLevel3(root, { onExit, onSmash }) {
       chase(monster, player, dt, ENEMY_HALF, world.grid);
     }
     separateEnemies(monsters, ENEMY_HALF, world.grid);
-    for (const monster of monsters) {
-      monster.mesh.visible = monster.alive;
+    for (let i = monsters.length - 1; i >= 0; i--) {
+      const monster = monsters[i];
+      if (!monster.alive) {
+        if (monster.mesh) scene.remove(monster.mesh);
+        monsters.splice(i, 1);
+        continue;
+      }
+      if (!monster.mesh) continue;
+      monster.mesh.visible = true;
       monster.mesh.position.set(monster.x / TILE, 0, monster.y / TILE);
       const face = Math.atan2(player.y - monster.y, player.x - monster.x);
       monster.mesh.rotation.y = -face;

@@ -10,6 +10,12 @@ export const EXTRA_MONSTER_TILES = [
 export const BULLET_SPEED = 560;
 export const BULLET_HIT = 22;
 export const MONSTER_HP = 2;
+export const MAX_ALIVE = 6;
+export const SPAWN_EVERY = 2.5;
+export const MIN_SPAWN_DIST = 140;
+export const CONTACT_REACH = 26;
+export const CONTACT_DAMAGE = 1;
+export const TANK_HP = 3;
 
 /**
  * Fixed follow camera, in tile units. It sits south of the hero and looks north,
@@ -105,4 +111,48 @@ export function stepBullet(bullet, dt, grid, monsters) {
     return 'hit';
   }
   return 'fly';
+}
+
+export function countAlive(monsters) {
+  return monsters.reduce((total, monster) => total + (monster.alive ? 1 : 0), 0);
+}
+
+/** Prefer a spawn point well away from the tank. Falls back to any point so spawns never stop. */
+export function pickSpawnPoint(points, player, rng = Math.random) {
+  if (!points?.length || !player) return null;
+  const far = points.filter((point) => Math.hypot(point.x - player.x, point.y - player.y) >= MIN_SPAWN_DIST);
+  const pool = far.length ? far : points;
+  const index = Math.min(pool.length - 1, Math.floor(rng() * pool.length));
+  return pool[index];
+}
+
+/**
+ * Spawn one monster every SPAWN_EVERY seconds, up to MAX_ALIVE.
+ * While the cap is full the timer stays ready, so a new one appears as soon as one is gone.
+ */
+export function advanceSpawner(timer, dt, monsters, player, points, rng = Math.random) {
+  const next = Math.max(0, timer) + Math.max(0, dt);
+  if (countAlive(monsters) >= MAX_ALIVE) {
+    return { timer: Math.min(next, SPAWN_EVERY), spawned: null };
+  }
+  if (next < SPAWN_EVERY) return { timer: next, spawned: null };
+  const spot = pickSpawnPoint(points, player, rng);
+  if (!spot) return { timer: next, spawned: null };
+  return {
+    timer: 0,
+    spawned: { x: spot.x, y: spot.y, hp: MONSTER_HP, alive: true, fromLayout: false },
+  };
+}
+
+/** A monster that touches the tank pops and costs CONTACT_DAMAGE health. */
+export function applyContact(player, monsters, hp) {
+  const popped = [];
+  for (const monster of monsters) {
+    if (!monster.alive) continue;
+    if (Math.hypot(monster.x - player.x, monster.y - player.y) > CONTACT_REACH) continue;
+    monster.alive = false;
+    popped.push(monster);
+  }
+  const next = Math.max(0, hp - popped.length * CONTACT_DAMAGE);
+  return { hp: next, popped, dead: popped.length > 0 && next <= 0 };
 }
