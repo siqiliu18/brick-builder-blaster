@@ -1,4 +1,5 @@
 import { COLS, ROWS, TILE } from './level.js';
+import { PLAYER_HALF, PLAYER_SPEED, isBlocked, moveBody, seesTarget } from './sim.js';
 
 /** Open floor tiles in Level 1 where the 3D test adds a few extra monsters. */
 export const EXTRA_MONSTER_TILES = [
@@ -16,6 +17,9 @@ export const MIN_SPAWN_DIST = 140;
 export const CONTACT_REACH = 26;
 export const CONTACT_DAMAGE = 1;
 export const TANK_HP = 3;
+export const ALLY_HP = 3;
+export const ALLY_SHOT_GAP = 0.26;
+export const ALLY_STANDOFF = 56;
 
 /**
  * Fixed follow camera, in tile units. It sits south of the hero and looks north,
@@ -155,4 +159,62 @@ export function applyContact(player, monsters, hp) {
   }
   const next = Math.max(0, hp - popped.length * CONTACT_DAMAGE);
   return { hp: next, popped, dead: popped.length > 0 && next <= 0 };
+}
+
+export function canCallAlly(ally) {
+  return !ally?.alive;
+}
+
+export function nearestMonster(origin, monsters) {
+  let best = null;
+  let bestDist = Infinity;
+  for (const monster of monsters) {
+    if (!monster?.alive) continue;
+    const dist = Math.hypot(monster.x - origin.x, monster.y - origin.y);
+    if (dist < bestDist) {
+      bestDist = dist;
+      best = monster;
+    }
+  }
+  return best;
+}
+
+/** Stand beside the player on open floor. */
+export function allySpawnNear(player, grid) {
+  const tries = [
+    [48, 0],
+    [-48, 0],
+    [0, 48],
+    [0, -48],
+    [36, 36],
+    [-36, 36],
+  ];
+  for (const [dx, dy] of tries) {
+    const x = player.x + dx;
+    const y = player.y + dy;
+    if (!isBlocked(grid, x, y, PLAYER_HALF)) return { x, y };
+  }
+  return { x: player.x, y: player.y };
+}
+
+/**
+ * Drive toward the nearest monster and fire only when the shot is clear.
+ * The ally never aims at the player.
+ */
+export function stepAlly(ally, monsters, dt, grid) {
+  if (!ally?.alive) return { aim: ally?.facing || 0, fire: false };
+  const target = nearestMonster(ally, monsters);
+  if (!target) return { aim: ally.facing || 0, fire: false };
+  const dx = target.x - ally.x;
+  const dy = target.y - ally.y;
+  const dist = Math.hypot(dx, dy) || 1;
+  if (dist > ALLY_STANDOFF) {
+    moveBody(ally, (dx / dist) * PLAYER_SPEED, (dy / dist) * PLAYER_SPEED, dt, PLAYER_HALF, grid);
+  }
+  const aim = Math.atan2(target.y - ally.y, target.x - ally.x);
+  ally.facing = aim;
+  ally.cooldown = Math.max(0, (ally.cooldown || 0) - dt);
+  const fire = seesTarget(ally, target, grid) && ally.cooldown <= 0;
+  if (fire) ally.cooldown = ALLY_SHOT_GAP;
+  return { aim, fire };
 }

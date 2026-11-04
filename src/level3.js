@@ -20,6 +20,9 @@ import {
   applyContact,
   createLevel3World,
   reachedGoal,
+  ALLY_HP,
+  stepAlly,
+  allySpawnNear,
   stepBullet,
   stickAngle,
 } from './level3-sim.js';
@@ -129,11 +132,15 @@ export function blobShadow(texture, width, depth, disposables) {
   return mesh;
 }
 
-export function makeTank(disposables) {
-  const rust = lambert(0x8a4a28);
-  const rustDark = lambert(0x5c3218);
-  const treadMat = lambert(0x3a2a22);
-  const wheelMat = lambert(0x2a2a2a);
+const RAINBOW = [0xe10600, 0xff6d00, 0xffe14a, 0x43a047, 0x1e88e5, 0x8e24aa];
+
+export function makeTank(disposables, options = {}) {
+  const rainbow = Boolean(options.rainbow);
+  const rider = options.rider !== false && !rainbow;
+  const rust = lambert(rainbow ? RAINBOW[2] : 0x8a4a28);
+  const rustDark = lambert(rainbow ? RAINBOW[4] : 0x5c3218);
+  const treadMat = lambert(rainbow ? RAINBOW[1] : 0x3a2a22);
+  const wheelMat = lambert(rainbow ? RAINBOW[3] : 0x2a2a2a);
   const helmetMat = lambert(0x6a7178);
   const skinMat = lambert(0xf0c09a);
   const shirtMat = lambert(0x3d8b4a);
@@ -142,20 +149,36 @@ export function makeTank(disposables) {
   const hull = new THREE.Group();
   const turret = new THREE.Group();
 
-  const body = new THREE.Mesh(new THREE.BoxGeometry(0.78, 0.26, 0.42), rust);
-  body.position.y = 0.28;
-  hull.add(body);
+  if (rainbow) {
+    const slice = 0.78 / RAINBOW.length;
+    for (let i = 0; i < RAINBOW.length; i++) {
+      const segment = new THREE.Mesh(new THREE.BoxGeometry(slice * 0.92, 0.26, 0.42), lambert(RAINBOW[i]));
+      segment.position.set(-0.39 + slice * 0.5 + i * slice, 0.28, 0);
+      hull.add(segment);
+      disposables.push(segment.geometry, segment.material);
+    }
+  } else {
+    const body = new THREE.Mesh(new THREE.BoxGeometry(0.78, 0.26, 0.42), rust);
+    body.position.y = 0.28;
+    hull.add(body);
+    disposables.push(body.geometry);
+  }
   const wheelGeo = new THREE.CylinderGeometry(0.07, 0.07, 0.08, 8);
-  for (const side of [-0.26, 0.26]) {
-    const tread = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.16, 0.13), treadMat);
+  for (const [sideIndex, side] of [-0.26, 0.26].entries()) {
+    const tread = new THREE.Mesh(
+      new THREE.BoxGeometry(0.9, 0.16, 0.13),
+      rainbow ? lambert(side < 0 ? RAINBOW[0] : RAINBOW[5]) : treadMat,
+    );
     tread.position.set(0, 0.1, side);
     hull.add(tread);
     disposables.push(tread.geometry);
+    if (rainbow) disposables.push(tread.material);
     for (let i = 0; i < 4; i++) {
-      const wheel = new THREE.Mesh(wheelGeo, wheelMat);
+      const wheel = new THREE.Mesh(wheelGeo, rainbow ? lambert(RAINBOW[(sideIndex + i) % RAINBOW.length]) : wheelMat);
       wheel.rotation.x = Math.PI / 2;
       wheel.position.set(-0.3 + i * 0.2, 0.08, side);
       hull.add(wheel);
+      if (rainbow) disposables.push(wheel.material);
     }
   }
 
@@ -163,36 +186,38 @@ export function makeTank(disposables) {
   star.position.set(0.08, 0.34, 0.22);
   hull.add(star);
 
-  const dome = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.16, 0.32), rustDark);
+  const domeMat = rainbow ? lambert(RAINBOW[3]) : rustDark;
+  const barrelMat = rainbow ? lambert(RAINBOW[2]) : rustDark;
+  const dome = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.16, 0.32), domeMat);
   dome.position.y = 0.48;
-  const barrel = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.08, 0.08), rustDark);
+  const barrel = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.08, 0.08), barrelMat);
   barrel.position.set(0.38, 0.5, 0);
   turret.add(dome, barrel);
+  const extra = [wheelGeo, dome.geometry, barrel.geometry, star.geometry, star.material, star.material.map, rust, rustDark, treadMat, wheelMat];
+  if (rainbow) extra.push(domeMat, barrelMat);
 
-  const head = new THREE.Mesh(new THREE.SphereGeometry(0.11, 10, 8), skinMat);
-  head.position.set(0.02, 0.72, 0);
-  const helmet = new THREE.Mesh(new THREE.SphereGeometry(0.13, 10, 8), helmetMat);
-  helmet.scale.set(1.05, 0.72, 1.05);
-  helmet.position.set(-0.01, 0.8, 0);
-  const brim = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.03, 0.22), helmetMat);
-  brim.position.set(0.08, 0.74, 0);
-  const shirt = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.12, 0.16), shirtMat);
-  shirt.position.set(-0.02, 0.58, 0);
-  const eyeGeo = new THREE.SphereGeometry(0.025, 6, 5);
-  turret.add(head, helmet, brim, shirt);
-  for (const z of [-0.045, 0.045]) {
-    const eye = new THREE.Mesh(eyeGeo, eyeMat);
-    eye.position.set(0.1, 0.73, z);
-    turret.add(eye);
+  if (rider) {
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.11, 10, 8), skinMat);
+    head.position.set(0.02, 0.72, 0);
+    const helmet = new THREE.Mesh(new THREE.SphereGeometry(0.13, 10, 8), helmetMat);
+    helmet.scale.set(1.05, 0.72, 1.05);
+    helmet.position.set(-0.01, 0.8, 0);
+    const brim = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.03, 0.22), helmetMat);
+    brim.position.set(0.08, 0.74, 0);
+    const shirt = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.12, 0.16), shirtMat);
+    shirt.position.set(-0.02, 0.58, 0);
+    const eyeGeo = new THREE.SphereGeometry(0.025, 6, 5);
+    turret.add(head, helmet, brim, shirt);
+    for (const z of [-0.045, 0.045]) {
+      const eye = new THREE.Mesh(eyeGeo, eyeMat);
+      eye.position.set(0.1, 0.73, z);
+      turret.add(eye);
+    }
+    extra.push(helmetMat, skinMat, shirtMat, eyeMat, head.geometry, helmet.geometry, brim.geometry, shirt.geometry, eyeGeo);
   }
 
   hero.add(hull, turret);
-  disposables.push(
-    rust, rustDark, treadMat, wheelMat, helmetMat, skinMat, shirtMat, eyeMat,
-    body.geometry, wheelGeo, dome.geometry, barrel.geometry,
-    head.geometry, helmet.geometry, brim.geometry, shirt.geometry, eyeGeo,
-    star.geometry, star.material, star.material.map,
-  );
+  disposables.push(...extra);
   return { hero, hull, turret };
 }
 
@@ -344,6 +369,7 @@ function runLevel3(root, { onExit, onSmash, onHealth }) {
   let lost = false;
   let hp = TANK_HP;
   let spawnTimer = 0;
+  let ally = null;
 
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0xc5d4e0);
@@ -382,6 +408,9 @@ function runLevel3(root, { onExit, onSmash, onHealth }) {
   }
 
   const { hero, hull, turret } = makeTank(disposables);
+  const rainbowTank = makeTank(disposables, { rainbow: true, rider: false });
+  rainbowTank.hero.visible = false;
+  scene.add(rainbowTank.hero);
   const shadowTex = makeCanvasTexture((ctx, size) => {
     const fade = ctx.createRadialGradient(size / 2, size / 2, size * 0.08, size / 2, size / 2, size * 0.48);
     fade.addColorStop(0, 'rgba(30, 40, 50, 0.4)');
@@ -473,6 +502,32 @@ function runLevel3(root, { onExit, onSmash, onHealth }) {
   renderer.setClearColor(0xc5d4e0, 1);
   renderer.domElement.style.touchAction = 'none';
   root.replaceChildren(renderer.domElement);
+  const allyButton = document.createElement('button');
+  allyButton.type = 'button';
+  allyButton.className = 'level3-ally-btn';
+  allyButton.setAttribute('aria-label', 'Call rainbow tank');
+  allyButton.innerHTML = `<svg viewBox="0 0 64 64" aria-hidden="true">
+    <defs>
+      <linearGradient id="rainbow-tank" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0" stop-color="#e10600"/>
+        <stop offset="0.2" stop-color="#ff6d00"/>
+        <stop offset="0.4" stop-color="#ffe14a"/>
+        <stop offset="0.6" stop-color="#43a047"/>
+        <stop offset="0.8" stop-color="#1e88e5"/>
+        <stop offset="1" stop-color="#8e24aa"/>
+      </linearGradient>
+    </defs>
+    <rect x="6" y="30" width="40" height="16" rx="3" fill="url(#rainbow-tank)"/>
+    <rect x="16" y="18" width="18" height="14" rx="2" fill="url(#rainbow-tank)"/>
+    <rect x="30" y="22" width="24" height="6" rx="2" fill="#ffe14a"/>
+    <rect x="8" y="46" width="36" height="6" rx="2" fill="#5c3218"/>
+  </svg>`;
+  allyButton.addEventListener('pointerdown', (event) => event.stopPropagation());
+  allyButton.addEventListener('click', (event) => {
+    event.stopPropagation();
+    summonAlly();
+  });
+  root.append(allyButton);
 
   const pointer = { inside: false, down: false, onBoard: false, x: 0, y: 0 };
   const canvas = renderer.domElement;
@@ -541,11 +596,36 @@ function runLevel3(root, { onExit, onSmash, onHealth }) {
     turret.rotation.y = -aimAngle;
   }
 
-  function spawnBullet(angle) {
+  function summonAlly() {
+    if (ally?.alive) return;
+    const spot = allySpawnNear(player, world.grid);
+    ally = {
+      x: spot.x,
+      y: spot.y,
+      facing: moveFacing,
+      cooldown: 0.2,
+      hp: ALLY_HP,
+      alive: true,
+    };
+    rainbowTank.hero.visible = true;
+    allyButton.disabled = true;
+  }
+
+  function syncAlly() {
+    const alive = Boolean(ally?.alive);
+    rainbowTank.hero.visible = alive;
+    allyButton.disabled = alive;
+    if (!alive) return;
+    rainbowTank.hero.position.set(ally.x / TILE, 0, ally.y / TILE);
+    rainbowTank.hull.rotation.y = -ally.facing;
+    rainbowTank.turret.rotation.y = -ally.facing;
+  }
+
+  function spawnBullet(angle, from = player) {
     const mesh = new THREE.Mesh(bulletGeo, bulletMat);
     const bullet = {
-      x: player.x + Math.cos(angle) * 20,
-      y: player.y + Math.sin(angle) * 20,
+      x: from.x + Math.cos(angle) * 20,
+      y: from.y + Math.sin(angle) * 20,
       angle,
       mesh,
     };
@@ -641,6 +721,16 @@ function runLevel3(root, { onExit, onSmash, onHealth }) {
       monsters.push(spawn.spawned);
       attachMonster(spawn.spawned);
     }
+    if (ally?.alive) {
+      const action = stepAlly(ally, monsters, dt, world.grid);
+      if (action.fire) spawnBullet(action.aim, ally);
+      const allyHit = applyContact(ally, monsters, ally.hp);
+      if (allyHit.popped.length) {
+        ally.hp = allyHit.hp;
+        for (const monster of allyHit.popped) explode(monster);
+        if (allyHit.dead) ally.alive = false;
+      }
+    }
 
     const aim = aimVector();
     const shot = aim.on
@@ -689,6 +779,7 @@ function runLevel3(root, { onExit, onSmash, onHealth }) {
       monster.mesh.rotation.y = -face;
     }
 
+    syncAlly();
     placeHero();
     const focusX = player.x / TILE;
     const focusZ = player.y / TILE;

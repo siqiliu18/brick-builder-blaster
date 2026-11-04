@@ -11,9 +11,12 @@ import {
   MAX_ALIVE,
   SPAWN_EVERY,
   TANK_HP,
+  ALLY_HP,
   advanceSpawner,
   applyContact,
+  canCallAlly,
   pickSpawnPoint,
+  stepAlly,
   reachedGoal,
   stepBullet,
   stickAngle,
@@ -130,6 +133,37 @@ test('a Level 3 monster that touches the tank pops and costs one heart', () => {
   assert.equal(wiped.hp, 0);
   assert.equal(wiped.dead, true);
   assert.equal(crowd.every((monster) => !monster.alive), true);
+});
+
+test('the rainbow ally shoots a monster it can see and pops when bumped', () => {
+  const grid = blankRows().map((row) => row.split(''));
+  const ally = { x: 100, y: 100, facing: 0, cooldown: 0, hp: ALLY_HP, alive: true };
+  const monster = { x: 300, y: 100, alive: true, hp: 2 };
+  const chase = stepAlly(ally, [monster], 0.2, grid);
+  assert.ok(ally.x > 100);
+  assert.equal(chase.fire, true);
+  assert.ok(Math.abs(chase.aim) < 0.05);
+  assert.equal(stepAlly(ally, [monster], 0.01, grid).fire, false);
+
+  grid[2][4] = 'W';
+  const blocked = { x: 100, y: 100, facing: 0, cooldown: 0, hp: ALLY_HP, alive: true };
+  const hidden = { x: 340, y: 100, alive: true, hp: 2 };
+  assert.equal(stepAlly(blocked, [hidden], 0.05, grid).fire, false);
+
+  const bumper = { x: 110, y: 100, alive: true };
+  const bystander = { x: 500, y: 100, alive: true };
+  const playerHp = 3;
+  const hit = applyContact({ x: 100, y: 100 }, [bumper, bystander], ALLY_HP);
+  assert.equal(hit.hp, ALLY_HP - 1);
+  assert.equal(hit.dead, false);
+  assert.equal(bumper.alive, false);
+  assert.equal(bystander.alive, true);
+  assert.equal(playerHp, 3);
+  const fatal = applyContact({ x: 100, y: 100 }, [{ x: 100, y: 108, alive: true }], 1);
+  assert.equal(fatal.dead, true);
+  assert.equal(canCallAlly({ alive: true }), false);
+  assert.equal(canCallAlly(null), true);
+  assert.equal(canCallAlly({ alive: false }), true);
 });
 
 test('the menu keeps Level 1 and Level 2 and adds Level 3 (3D)', () => {
