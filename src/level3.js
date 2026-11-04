@@ -51,7 +51,7 @@ function showFallback(root, onExit) {
   root.append(wrap);
 }
 
-function makeCanvasTexture(draw, size = 128) {
+export function makeCanvasTexture(draw, size = 128) {
   const canvas = document.createElement('canvas');
   canvas.width = size;
   canvas.height = size;
@@ -72,7 +72,7 @@ function shiftColor(hex, amount) {
   return `rgb(${r},${g},${b})`;
 }
 
-function drawBrick(ctx, size, color, mortar) {
+export function drawBrick(ctx, size, color, mortar) {
   ctx.fillStyle = mortar;
   ctx.fillRect(0, 0, size, size);
   const cols = 4;
@@ -95,7 +95,7 @@ function drawBrick(ctx, size, color, mortar) {
   }
 }
 
-function drawFloor(ctx, size) {
+export function drawFloor(ctx, size) {
   ctx.fillStyle = '#aeb6be';
   ctx.fillRect(0, 0, size, size);
   const tiles = 2;
@@ -115,11 +115,11 @@ function drawFloor(ctx, size) {
   }
 }
 
-function lambert(color, map) {
+export function lambert(color, map) {
   return new THREE.MeshLambertMaterial(map ? { map, color: 0xffffff } : { color });
 }
 
-function blobShadow(texture, width, depth, disposables) {
+export function blobShadow(texture, width, depth, disposables) {
   const geometry = new THREE.PlaneGeometry(width, depth);
   const material = new THREE.MeshBasicMaterial({ map: texture, transparent: true, depthWrite: false });
   disposables.push(geometry, material);
@@ -129,7 +129,7 @@ function blobShadow(texture, width, depth, disposables) {
   return mesh;
 }
 
-function makeTank(disposables) {
+export function makeTank(disposables) {
   const rust = lambert(0x8a4a28);
   const rustDark = lambert(0x5c3218);
   const treadMat = lambert(0x3a2a22);
@@ -223,7 +223,7 @@ function starPlane() {
   return mesh;
 }
 
-function makeMonster(color, eyeMat, pupilMat, eyeGeo, pupilGeo, bodyGeo) {
+export function makeMonster(color, eyeMat, pupilMat, eyeGeo, pupilGeo, bodyGeo) {
   const group = new THREE.Group();
   const body = new THREE.Mesh(bodyGeo, lambert(color));
   body.scale.set(1, 0.82, 0.92);
@@ -239,7 +239,7 @@ function makeMonster(color, eyeMat, pupilMat, eyeGeo, pupilGeo, bodyGeo) {
   return { group, bodyMat: body.material };
 }
 
-function makeFinish(goal, disposables) {
+export function makeFinish(goal, disposables) {
   const group = new THREE.Group();
   group.position.set(goal.tx + 0.5, 0, goal.ty + 0.5);
   const checker = makeCanvasTexture((ctx, size) => {
@@ -276,7 +276,7 @@ function makeFinish(goal, disposables) {
   return { group, flag };
 }
 
-function nameSprite(text) {
+export function nameSprite(text) {
   const canvas = document.createElement('canvas');
   canvas.width = 256;
   canvas.height = 64;

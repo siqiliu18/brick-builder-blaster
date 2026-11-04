@@ -10,6 +10,7 @@ import {
   clearLevel,
   activeCampaign,
   encodeLevel,
+  findCells,
   getRows,
   initLevel,
   jaspersLevel,
@@ -192,12 +193,12 @@ async function boot() {
     shoot: '<b>Shoot</b> with the right stick the same way, or touch the ground where you want the shot to go. Hold to keep firing.',
   };
   const level2Help = {
-    walls: 'Blue walls make the maze. Shoot the red gate to open it. A red brick hides a bonus coin.',
+    walls: 'Brown brick walls are solid. Shoot the colored gate bricks to open the path. One brick hides a bonus coin.',
     hearts:
       'You ride the rusty tank. It is a little slower than running. Armor takes 5 hits, then a monster costs a heart. Purple monsters still take 3 hits.',
     goal: 'Follow the coins to the blue flag.',
-    move: helpMove.innerHTML,
-    shoot: helpShoot.innerHTML,
+    move: level3Help.move,
+    shoot: level3Help.shoot,
   };
   function showHelp(campaign) {
     const help = campaign === 3 ? level3Help : campaign === 2 ? level2Help : level1Help;
@@ -248,6 +249,10 @@ async function boot() {
   }
 
   document.getElementById('btn-play').addEventListener('click', () => {
+    if (activeCampaign() === 2) {
+      startLevel2Three();
+      return;
+    }
     scene()?.enterPlay();
   });
   document.getElementById('btn-back').addEventListener('click', () => {
@@ -257,8 +262,18 @@ async function boot() {
     }
     scene()?.backToBuild();
   });
-  document.getElementById('btn-again').addEventListener('click', () => scene()?.enterPlay());
-  document.getElementById('btn-results-back').addEventListener('click', () => scene()?.backToBuild());
+  document.getElementById('btn-again').addEventListener('click', () => {
+    hide('results');
+    if (activeCampaign() === 2) {
+      startLevel2Three();
+      return;
+    }
+    scene()?.enterPlay();
+  });
+  document.getElementById('btn-results-back').addEventListener('click', () => {
+    if (level3Handle) stopLevel3();
+    scene()?.backToBuild();
+  });
 
   let confirmAction = null;
   function ask(title, body, yesLabel, action) {
@@ -296,6 +311,44 @@ async function boot() {
     document.getElementById('board-frame').classList.remove('level3-on');
     window.dispatchEvent(new CustomEvent('bbb-mode', { detail: { mode: 'build', campaign: 0 } }));
     game?.scene.resume('game');
+  }
+
+  async function startLevel2Three() {
+    if (level3Handle) stopLevel3();
+    const rows = getRows();
+    if (findCells(rows, 'S').length < 1 || findCells(rows, 'F').length < 1) {
+      toast('Place one Start and one Finish first.');
+      return;
+    }
+    const button = document.getElementById('btn-level2');
+    button.disabled = true;
+    try {
+      const { mountLevel2 } = await import('./level2-3d.js');
+      document.getElementById('board-frame').classList.add('level3-on');
+      hide('results');
+      window.dispatchEvent(new CustomEvent('bbb-mode', { detail: { mode: 'play', campaign: 2 } }));
+      level3Handle = mountLevel2(document.getElementById('level3-root'), {
+        rows,
+        onExit: stopLevel3,
+        onHud: (hud) => {
+          renderHearts(hud.health);
+          renderArmor(hud.armor, hud.armorMax);
+          document.getElementById('hud-coins').textContent = `Coins ${hud.coins}`;
+          document.getElementById('hud-enemies').textContent = `Smashed ${hud.smashed}`;
+          document.getElementById('hud-time').textContent = formatTime(hud.time);
+        },
+        onWin: (stats) => {
+          window.dispatchEvent(new CustomEvent('bbb-results', { detail: stats }));
+        },
+      });
+      game?.scene.pause('game');
+    } catch (error) {
+      console.error(error);
+      toast('Level 2 could not start.');
+      stopLevel3();
+    } finally {
+      button.disabled = false;
+    }
   }
 
   document.getElementById('btn-level3').addEventListener('click', async () => {
@@ -343,7 +396,7 @@ async function boot() {
   document.getElementById('btn-next').addEventListener('click', () => {
     replaceLevel(level2());
     hide('results');
-    if (scene()?.enterPlay()) toast('Level 2! Follow the coins through the maze.');
+    startLevel2Three();
   });
   document.getElementById('confirm-no').addEventListener('click', () => {
     confirmAction = null;
