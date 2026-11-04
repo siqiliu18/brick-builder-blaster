@@ -529,13 +529,30 @@ function runLevel3(root, { onExit, onSmash, onHealth }) {
     <rect x="16" y="18" width="18" height="14" rx="2" fill="url(#rainbow-tank)"/>
     <rect x="30" y="22" width="24" height="6" rx="2" fill="#ffe14a"/>
     <rect x="8" y="46" width="36" height="6" rx="2" fill="#5c3218"/>
-  </svg>`;
-  allyButton.addEventListener('pointerdown', (event) => event.stopPropagation());
-  allyButton.addEventListener('click', (event) => {
+  </svg><span class="level3-ally-count">5</span>`;
+  const allyCount = allyButton.querySelector('.level3-ally-count');
+  function paintAllyCount() {
+    const left = Math.max(0, MAX_ALLIES - alliesCalled);
+    allyCount.textContent = String(left);
+    allyButton.disabled = left === 0;
+    allyButton.setAttribute('aria-label', left ? `Call rainbow tank, ${left} left` : 'No rainbow tanks left');
+  }
+  function onAllyPointerDown(event) {
+    if (allyButton.disabled) return;
+    event.preventDefault();
     event.stopPropagation();
+    allyButton.setPointerCapture?.(event.pointerId);
+  }
+  function onAllyPointerUp(event) {
+    event.preventDefault();
+    event.stopPropagation();
+    if (event.button != null && event.button !== 0) return;
     summonAlly();
-  });
-  root.append(allyButton);
+  }
+  allyButton.addEventListener('pointerdown', onAllyPointerDown, { passive: false });
+  allyButton.addEventListener('pointerup', onAllyPointerUp, { passive: false });
+  (root.parentElement || root).append(allyButton);
+  paintAllyCount();
 
   const pointer = { inside: false, down: false, onBoard: false, x: 0, y: 0 };
   const canvas = renderer.domElement;
@@ -617,6 +634,7 @@ function runLevel3(root, { onExit, onSmash, onHealth }) {
     const spot = allySpawnNear(player, world.grid, allies);
     tank.used = true;
     tank.hero.visible = true;
+    alliesCalled += 1;
     allies.push({
       x: spot.x,
       y: spot.y,
@@ -624,10 +642,10 @@ function runLevel3(root, { onExit, onSmash, onHealth }) {
       cooldown: 0.2,
       hp: ALLY_HP,
       alive: true,
+      slot: alliesCalled - 1,
       tank,
     });
-    alliesCalled += 1;
-    if (!canAddAlly(alliesCalled)) allyButton.disabled = true;
+    paintAllyCount();
   }
 
   function syncAllies() {
@@ -838,6 +856,7 @@ function runLevel3(root, { onExit, onSmash, onHealth }) {
       canvas.removeEventListener('pointercancel', onPointerUp);
       canvas.removeEventListener('pointerleave', onPointerLeave);
       syncMoveSound(0, false, false);
+      allyButton.remove();
       for (const item of disposables) item.dispose?.();
       renderer.dispose();
       root.replaceChildren();

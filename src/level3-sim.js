@@ -186,7 +186,7 @@ export function allySpawnNear(player, grid, allies = []) {
   const taken = (allies || []).filter((ally) => ally?.alive);
   const tries = [];
   for (let ring = 1; ring <= 4; ring++) {
-    const step = 42 * ring;
+    const step = 110 * ring;
     tries.push(
       [step, 0],
       [-step, 0],
@@ -202,7 +202,7 @@ export function allySpawnNear(player, grid, allies = []) {
     const x = player.x + dx;
     const y = player.y + dy;
     if (isBlocked(grid, x, y, PLAYER_HALF)) continue;
-    const stacked = taken.some((ally) => Math.hypot(ally.x - x, ally.y - y) < 36);
+    const stacked = taken.some((ally) => Math.hypot(ally.x - x, ally.y - y) < 96);
     if (stacked) continue;
     return { x, y };
   }
@@ -217,11 +217,15 @@ export function stepAlly(ally, monsters, dt, grid) {
   if (!ally?.alive) return { aim: ally?.facing || 0, fire: false };
   const target = nearestMonster(ally, monsters);
   if (!target) return { aim: ally.facing || 0, fire: false };
-  const dx = target.x - ally.x;
-  const dy = target.y - ally.y;
-  const dist = Math.hypot(dx, dy) || 1;
-  if (dist > ALLY_STANDOFF) {
-    moveBody(ally, (dx / dist) * PLAYER_SPEED, (dy / dist) * PLAYER_SPEED, dt, PLAYER_HALF, grid);
+  const slot = Number.isInteger(ally.slot) ? ally.slot : 0;
+  const holdAngle = (slot * 2 * Math.PI) / MAX_ALLIES;
+  const holdX = target.x + Math.cos(holdAngle) * 120;
+  const holdY = target.y + Math.sin(holdAngle) * 120;
+  const hdx = holdX - ally.x;
+  const hdy = holdY - ally.y;
+  const holdDist = Math.hypot(hdx, hdy) || 1;
+  if (holdDist > 30) {
+    moveBody(ally, (hdx / holdDist) * PLAYER_SPEED, (hdy / holdDist) * PLAYER_SPEED, dt, PLAYER_HALF, grid);
   }
   const aim = Math.atan2(target.y - ally.y, target.x - ally.x);
   ally.facing = aim;

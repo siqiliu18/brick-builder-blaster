@@ -171,7 +171,28 @@ test('the rainbow ally shoots a monster it can see and pops when bumped', () => 
   const here = { x: 200, y: 200 };
   const first = allySpawnNear(here, open, []);
   const second = allySpawnNear(here, open, [{ ...first, alive: true }]);
-  assert.ok(Math.hypot(first.x - second.x, first.y - second.y) >= 36);
+  assert.ok(Math.hypot(first.x - second.x, first.y - second.y) >= 96);
+  let called = 0;
+  const squad = [];
+  const player = { x: 400, y: 280 };
+  for (let press = 0; press < 5; press++) {
+    assert.equal(canAddAlly(called), true, `press ${press + 1} should count`);
+    const spot = allySpawnNear(player, open, squad);
+    called += 1;
+    squad.push({ x: spot.x, y: spot.y, alive: true, slot: called - 1 });
+  }
+  assert.equal(called, 5);
+  assert.equal(squad.length, 5);
+  assert.equal(canAddAlly(called), false);
+  squad.forEach((ally) => {
+    ally.alive = false;
+  });
+  assert.equal(canAddAlly(called), false);
+  for (let i = 0; i < squad.length; i++) {
+    for (let j = i + 1; j < squad.length; j++) {
+      assert.ok(Math.hypot(squad[i].x - squad[j].x, squad[i].y - squad[j].y) >= 96);
+    }
+  }
 });
 
 test('the menu keeps Level 1 and Level 2 and adds Level 3 (3D)', () => {
