@@ -1,5 +1,18 @@
 import { COLS, ROWS, TILE } from './level.js';
+import { pickSpawnPoint } from './level3-sim.js';
 import { BRUTE_HP, absorbHit, corridorHeading } from './sim.js';
+
+/** How often a new maze monster appears, and how many may be alive at once. */
+export const MAZE_SPAWN_EVERY = 3;
+export const MAZE_MAX_ALIVE = 6;
+
+/** Purple brute, green runner, yellow bruiser. */
+export const MAZE_KINDS = {
+  brute: { hp: BRUTE_HP, speed: 100, scale: 1.15, color: 0x7b1fa2 },
+  runner: { hp: 1, speed: 188, scale: 0.68, color: 0x2e7d32 },
+  bruiser: { hp: 2, speed: 96, scale: 1, color: 0xf5c400 },
+};
+const KIND_ORDER = ['runner', 'bruiser', 'brute'];
 
 const BULLET_SPEED = 560;
 
@@ -17,6 +30,7 @@ export function createMazeWorld(rows) {
   const blocks = [];
   const monsters = [];
   const coins = [];
+  const spawnPoints = [];
   let spawn = { tx: 2, ty: 2, ...center(2, 2) };
   let goal = null;
   for (let ty = 0; ty < ROWS; ty++) {
@@ -27,6 +41,7 @@ export function createMazeWorld(rows) {
       else if (ch === 'S') spawn = { tx, ty, ...spot };
       else if (ch === 'F') goal = { tx, ty, ...spot };
       else if (ch === 'C') coins.push({ tx, ty, ...spot, alive: true });
+      else if (ch === '.') spawnPoints.push(spot);
       else if (ch === 'M' || ch === 'E') {
         monsters.push({
           tx,
@@ -45,7 +60,40 @@ export function createMazeWorld(rows) {
     }
   }
   if (!goal) goal = farthestOpen(grid, spawn);
-  return { grid, brickHp, blocks, monsters, coins, spawn, goal };
+  return { grid, brickHp, blocks, monsters, coins, spawn, goal, spawnPoints };
+}
+
+/**
+ * Keep the maze stocked. The opening brutes count toward the cap.
+ * New monsters cycle runner, bruiser, brute, and appear away from the tank.
+ */
+export function advanceMazeSpawner(timer, dt, monsters, player, points, spawnIndex = 0, rng = Math.random) {
+  const alive = monsters.reduce((total, monster) => total + (monster.alive ? 1 : 0), 0);
+  const next = Math.max(0, timer) + Math.max(0, dt);
+  if (alive >= MAZE_MAX_ALIVE) {
+    return { timer: Math.min(next, MAZE_SPAWN_EVERY), spawned: null, spawnIndex };
+  }
+  if (next < MAZE_SPAWN_EVERY) return { timer: next, spawned: null, spawnIndex };
+  const spot = pickSpawnPoint(points, player, rng);
+  if (!spot) return { timer: next, spawned: null, spawnIndex };
+  const kind = KIND_ORDER[spawnIndex % KIND_ORDER.length];
+  const stats = MAZE_KINDS[kind];
+  return {
+    timer: 0,
+    spawnIndex: spawnIndex + 1,
+    spawned: {
+      x: spot.x,
+      y: spot.y,
+      homeX: spot.x,
+      homeY: spot.y,
+      hp: stats.hp,
+      alive: true,
+      kind,
+      heading: 0,
+      aggro: 0,
+      speed: stats.speed,
+    },
+  };
 }
 
 function farthestOpen(grid, spawn) {
@@ -90,7 +138,7 @@ export function stepMazeBullet(bullet, dt, grid, brickHp, monsters) {
   if (ty < 0 || tx < 0 || ty >= ROWS || tx >= COLS) return 'wall';
   for (const monster of monsters) {
     if (!monster.alive) continue;
-    const radius = monster.kind === 'brute' ? 20 : 18;
+    const radius = monster.kind === 'brute' ? 22 : monster.kind === 'runner' ? 14 : 18;
     if (Math.hypot(monster.x - bullet.x, monster.y - bullet.y) > radius) continue;
     monster.hp -= 1;
     if (monster.hp <= 0) {

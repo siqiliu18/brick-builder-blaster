@@ -2,7 +2,17 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { TILE, findCells, level2 } from '../src/level.js';
 import { BRUTE_HP, TANK_ARMOR } from '../src/sim.js';
-import { createMazeWorld, damageMazeCell, mazeTouch, stepMazeBullet } from '../src/level2-3d-sim.js';
+import {
+  MAZE_KINDS,
+  MAZE_MAX_ALIVE,
+  MAZE_SPAWN_EVERY,
+  advanceMazeSpawner,
+  createMazeWorld,
+  damageMazeCell,
+  mazeTouch,
+  stepMazeBullet,
+} from '../src/level2-3d-sim.js';
+import { canAddAlly, MAX_ALLIES } from '../src/level3-sim.js';
 
 test('Level 2 in 3D keeps the maze, three brutes, and the flag', () => {
   const rows = level2();
@@ -58,4 +68,39 @@ test('Level 2 brutes take three hits, and armor soaks a touch before hearts', ()
   const fatal = mazeTouch(player, [monster], 0, 1, 0);
   assert.equal(fatal.died, true);
   assert.equal(fatal.health, 0);
+});
+
+test('Level 2 keeps spawning runners, bruisers, and brutes away from the tank', () => {
+  const world = createMazeWorld(level2());
+  assert.equal(world.monsters.filter((monster) => monster.kind === 'brute').length, 3);
+  assert.equal(MAZE_KINDS.runner.hp, 1);
+  assert.ok(MAZE_KINDS.runner.speed > MAZE_KINDS.bruiser.speed);
+  assert.ok(MAZE_KINDS.bruiser.speed > 44);
+  assert.equal(MAZE_KINDS.bruiser.hp, 2);
+  assert.equal(MAZE_KINDS.brute.hp, 3);
+  const player = { x: world.spawn.x, y: world.spawn.y };
+  let timer = 0;
+  let index = 0;
+  const kinds = [];
+  for (let n = 0; n < 3; n++) {
+    const wave = advanceMazeSpawner(timer, MAZE_SPAWN_EVERY, world.monsters, player, world.spawnPoints, index, () => 0);
+    assert.ok(wave.spawned);
+    assert.ok(Math.hypot(wave.spawned.x - player.x, wave.spawned.y - player.y) >= 140);
+    kinds.push(wave.spawned.kind);
+    world.monsters.push(wave.spawned);
+    timer = wave.timer;
+    index = wave.spawnIndex;
+  }
+  assert.deepEqual(kinds, ['runner', 'bruiser', 'brute']);
+  const runner = { x: 400, y: 200, alive: true, kind: 'runner', hp: 1 };
+  assert.equal(stepMazeBullet({ x: runner.x - 10, y: runner.y, angle: 0 }, 0.02, world.grid, world.brickHp, [runner]), 'defeat');
+  while (world.monsters.filter((monster) => monster.alive).length < MAZE_MAX_ALIVE) {
+    world.monsters.push({ alive: true, x: 0, y: 0 });
+  }
+  const full = advanceMazeSpawner(MAZE_SPAWN_EVERY, 1, world.monsters, player, world.spawnPoints, index, () => 0);
+  assert.equal(full.spawned, null);
+  let called = 0;
+  while (canAddAlly(called)) called += 1;
+  assert.equal(called, MAX_ALLIES);
+  assert.equal(canAddAlly(called), false);
 });

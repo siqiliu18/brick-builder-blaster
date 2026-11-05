@@ -1,6 +1,16 @@
 import * as THREE from 'three';
 import { TILE } from './level.js';
-import { FIXED_CAMERA, angleTowardGround, stickAngle } from './level3-sim.js';
+import {
+  ALLY_HP,
+  FIXED_CAMERA,
+  MAX_ALLIES,
+  allySpawnNear,
+  angleTowardGround,
+  applyContact,
+  canAddAlly,
+  stepAlly,
+  stickAngle,
+} from './level3-sim.js';
 import {
   blobShadow,
   drawBrick,
@@ -13,7 +23,7 @@ import {
   nameSprite,
   webglAvailable,
 } from './level3.js';
-import { createMazeWorld, mazeTouch, stepMazeBullet } from './level2-3d-sim.js';
+import { MAZE_KINDS, advanceMazeSpawner, createMazeWorld, mazeTouch, stepMazeBullet } from './level2-3d-sim.js';
 import {
   ENEMY_HALF,
   PLAYER_HALF,
@@ -83,6 +93,10 @@ function runLevel2(root, { onExit, onHud, onWin, rows }) {
   let running = true;
   let won = false;
   let startedAt = performance.now();
+  let spawnTimer = 0;
+  let spawnIndex = 0;
+  let alliesCalled = 0;
+  const allies = [];
   const disposables = [];
 
   const scene = new THREE.Scene();
@@ -137,6 +151,14 @@ function runLevel2(root, { onExit, onHud, onWin, rows }) {
     disposables.push(tag.material.map, tag.material);
   }
   scene.add(hero);
+  const allyTanks = [];
+  for (let i = 0; i < MAX_ALLIES; i++) {
+    const tank = makeTank(disposables, { rainbow: true, rider: false });
+    tank.hero.visible = false;
+    tank.used = false;
+    scene.add(tank.hero);
+    allyTanks.push(tank);
+  }
 
   const finish = makeFinish(world.goal, disposables);
   scene.add(finish.group);
@@ -147,15 +169,17 @@ function runLevel2(root, { onExit, onHud, onWin, rows }) {
   const eyeMat = lambert(0xffffff);
   const pupilMat = lambert(0x222222);
   disposables.push(bodyGeo, eyeGeo, pupilGeo, eyeMat, pupilMat);
-  for (const monster of monsters) {
-    const color = monster.kind === 'brute' ? 0x7b1fa2 : 0xff6d00;
-    const built = makeMonster(color, eyeMat, pupilMat, eyeGeo, pupilGeo, bodyGeo);
+  function attachMonster(monster) {
+    const stats = MAZE_KINDS[monster.kind] || MAZE_KINDS.bruiser;
+    const built = makeMonster(stats.color, eyeMat, pupilMat, eyeGeo, pupilGeo, bodyGeo);
+    built.group.scale.setScalar(stats.scale);
     built.group.add(blobShadow(shadowTex, 0.75, 0.6, disposables));
     disposables.push(built.bodyMat);
     monster.mesh = built.group;
     built.group.position.set(monster.x / TILE, 0, monster.y / TILE);
     scene.add(built.group);
   }
+  for (const monster of monsters) attachMonster(monster);
 
   const coinGeo = new THREE.OctahedronGeometry(0.16, 0);
   const coinMat = lambert(0xffd000);
@@ -181,6 +205,48 @@ function runLevel2(root, { onExit, onHud, onWin, rows }) {
   renderer.setClearColor(0xc5d4e0, 1);
   renderer.domElement.style.touchAction = 'none';
   root.replaceChildren(renderer.domElement);
+  const allyButton = document.createElement('button');
+  allyButton.type = 'button';
+  allyButton.className = 'level3-ally-btn';
+  allyButton.innerHTML = `<svg viewBox="0 0 64 64" aria-hidden="true">
+    <defs>
+      <linearGradient id="rainbow-tank-l2" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0" stop-color="#e10600"/>
+        <stop offset="0.2" stop-color="#ff6d00"/>
+        <stop offset="0.4" stop-color="#ffe14a"/>
+        <stop offset="0.6" stop-color="#43a047"/>
+        <stop offset="0.8" stop-color="#1e88e5"/>
+        <stop offset="1" stop-color="#8e24aa"/>
+      </linearGradient>
+    </defs>
+    <rect x="6" y="30" width="40" height="16" rx="3" fill="url(#rainbow-tank-l2)"/>
+    <rect x="16" y="18" width="18" height="14" rx="2" fill="url(#rainbow-tank-l2)"/>
+    <rect x="30" y="22" width="24" height="6" rx="2" fill="#ffe14a"/>
+    <rect x="8" y="46" width="36" height="6" rx="2" fill="#5c3218"/>
+  </svg><span class="level3-ally-count">5</span>`;
+  const allyCount = allyButton.querySelector('.level3-ally-count');
+  function paintAllyCount() {
+    const left = Math.max(0, MAX_ALLIES - alliesCalled);
+    allyCount.textContent = String(left);
+    allyButton.disabled = left === 0;
+    allyButton.setAttribute('aria-label', left ? `Call rainbow tank, ${left} left` : 'No rainbow tanks left');
+  }
+  function onAllyPointerDown(event) {
+    if (allyButton.disabled) return;
+    event.preventDefault();
+    event.stopPropagation();
+    allyButton.setPointerCapture?.(event.pointerId);
+  }
+  function onAllyPointerUp(event) {
+    event.preventDefault();
+    event.stopPropagation();
+    if (event.button != null && event.button !== 0) return;
+    summonAlly();
+  }
+  allyButton.addEventListener('pointerdown', onAllyPointerDown, { passive: false });
+  allyButton.addEventListener('pointerup', onAllyPointerUp, { passive: false });
+  (root.parentElement || root).append(allyButton);
+  paintAllyCount();
 
   const pointer = { inside: false, down: false, onBoard: false, x: 0, y: 0 };
   const canvas = renderer.domElement;
@@ -263,11 +329,84 @@ function runLevel2(root, { onExit, onHud, onWin, rows }) {
     hero.visible = respawn <= 0;
   }
 
-  function spawnBullet(angle) {
+  function summonAlly() {
+    if (!canAddAlly(alliesCalled)) {
+      allyButton.disabled = true;
+      return;
+    }
+    const tank = allyTanks.find((item) => !item.used);
+    if (!tank) {
+      allyButton.disabled = true;
+      return;
+    }
+    const spot = allySpawnNear(player, world.grid, allies);
+    tank.used = true;
+    tank.hero.visible = true;
+    alliesCalled += 1;
+    allies.push({
+      x: spot.x,
+      y: spot.y,
+      facing: moveFacing,
+      cooldown: 0.2,
+      hp: ALLY_HP,
+      alive: true,
+      slot: alliesCalled - 1,
+      tank,
+    });
+    paintAllyCount();
+  }
+
+  function syncAllies() {
+    for (let i = allies.length - 1; i >= 0; i--) {
+      const ally = allies[i];
+      if (!ally.alive) {
+        ally.tank.hero.visible = false;
+        ally.tank.used = false;
+        allies.splice(i, 1);
+        continue;
+      }
+      ally.tank.hero.visible = true;
+      ally.tank.hero.position.set(ally.x / TILE, 0, ally.y / TILE);
+      ally.tank.hull.rotation.y = -ally.facing;
+      ally.tank.turret.rotation.y = -ally.facing;
+    }
+  }
+
+  const burstGeo = new THREE.SphereGeometry(0.08, 6, 5);
+  const burstMat = lambert(0xffb300);
+  disposables.push(burstGeo, burstMat);
+  const bursts = [];
+  function explode(monster) {
+    const group = new THREE.Group();
+    group.position.set(monster.x / TILE, 0.35, monster.y / TILE);
+    for (let i = 0; i < 6; i++) {
+      const bit = new THREE.Mesh(burstGeo, burstMat);
+      const angle = (i / 6) * Math.PI * 2;
+      bit.position.set(Math.cos(angle) * 0.12, 0.2, Math.sin(angle) * 0.12);
+      group.add(bit);
+    }
+    scene.add(group);
+    bursts.push({ group, life: 0.4, max: 0.4 });
+    if (monster.mesh) scene.remove(monster.mesh);
+    monster.mesh = null;
+  }
+  function updateBursts(dt) {
+    for (let i = bursts.length - 1; i >= 0; i--) {
+      const burst = bursts[i];
+      burst.life -= dt;
+      burst.group.scale.setScalar(1 + (1 - burst.life / burst.max) * 2.2);
+      if (burst.life <= 0) {
+        scene.remove(burst.group);
+        bursts.splice(i, 1);
+      }
+    }
+  }
+
+  function spawnBullet(angle, from = player) {
     const mesh = new THREE.Mesh(bulletGeo, bulletMat);
     bullets.push({
-      x: player.x + Math.cos(angle) * 26,
-      y: player.y + Math.sin(angle) * 26,
+      x: from.x + Math.cos(angle) * 26,
+      y: from.y + Math.sin(angle) * 26,
       angle,
       mesh,
     });
@@ -289,6 +428,7 @@ function runLevel2(root, { onExit, onHud, onWin, rows }) {
     const dt = Math.min(0.05, (now - last) / 1000);
     last = now;
     finish.flag.rotation.z = Math.sin(now / 220) * 0.35;
+    updateBursts(dt);
     if (won) {
       renderer.render(scene, camera);
       frame = requestAnimationFrame(tick);
@@ -337,7 +477,7 @@ function runLevel2(root, { onExit, onHud, onWin, rows }) {
         if (!monster.alive) continue;
         if (monster.kind === 'brute') stepBrute(monster, player, dt, ENEMY_HALF, world.grid, active);
         else {
-          monster.speed = madSpeed(elapsed);
+          monster.speed = MAZE_KINDS[monster.kind]?.speed || madSpeed(elapsed);
           chase(monster, player, dt, ENEMY_HALF, world.grid);
         }
       }
@@ -359,6 +499,24 @@ function runLevel2(root, { onExit, onHud, onWin, rows }) {
           resetBrutes();
         }
         hud();
+      }
+      for (const ally of allies) {
+        if (!ally.alive) continue;
+        const action = stepAlly(ally, monsters, dt, world.grid);
+        if (action.fire) spawnBullet(action.aim, ally);
+        const allyHit = applyContact(ally, monsters, ally.hp);
+        if (allyHit.popped.length) {
+          ally.hp = allyHit.hp;
+          for (const monster of allyHit.popped) explode(monster);
+          if (allyHit.dead) ally.alive = false;
+        }
+      }
+      const wave = advanceMazeSpawner(spawnTimer, dt, monsters, player, world.spawnPoints, spawnIndex);
+      spawnTimer = wave.timer;
+      spawnIndex = wave.spawnIndex;
+      if (wave.spawned) {
+        monsters.push(wave.spawned);
+        attachMonster(wave.spawned);
       }
 
       for (const coin of world.coins) {
@@ -422,13 +580,19 @@ function runLevel2(root, { onExit, onHud, onWin, rows }) {
       }
     }
 
-    for (const monster of monsters) {
+    for (let i = monsters.length - 1; i >= 0; i--) {
+      const monster = monsters[i];
+      if (!monster.alive) {
+        if (monster.mesh) scene.remove(monster.mesh);
+        monsters.splice(i, 1);
+        continue;
+      }
       if (!monster.mesh) continue;
-      monster.mesh.visible = monster.alive;
-      if (!monster.alive) continue;
+      monster.mesh.visible = true;
       monster.mesh.position.set(monster.x / TILE, 0, monster.y / TILE);
       monster.mesh.rotation.y = -Math.atan2(player.y - monster.y, player.x - monster.x);
     }
+    syncAllies();
     placeHero();
     const focusX = player.x / TILE;
     const focusZ = player.y / TILE;
@@ -458,6 +622,7 @@ function runLevel2(root, { onExit, onHud, onWin, rows }) {
       canvas.removeEventListener('pointercancel', onPointerUp);
       canvas.removeEventListener('pointerleave', onPointerLeave);
       syncMoveSound(0, false, false);
+      allyButton.remove();
       for (const item of disposables) item.dispose?.();
       renderer.dispose();
       root.replaceChildren();
