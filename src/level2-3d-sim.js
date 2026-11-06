@@ -155,8 +155,8 @@ export function stepMazeBullet(bullet, dt, grid, brickHp, monsters) {
  * One monster touch per check. Armor soaks the hit before a heart is lost.
  * invuln > 0 means the tank is still flashing and cannot be hit.
  */
-export function mazeTouch(player, monsters, armor, health, invuln) {
-  if (invuln > 0) return null;
+export function mazeTouch(player, monsters, armor, health, invuln, shielded = false) {
+  if (shielded || invuln > 0) return null;
   for (const monster of monsters) {
     if (!monster.alive) continue;
     const reach = monster.kind === 'brute' ? 24 : 22;

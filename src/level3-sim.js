@@ -21,6 +21,10 @@ export const ALLY_HP = 3;
 export const ALLY_SHOT_GAP = 0.26;
 export const ALLY_STANDOFF = 56;
 export const MAX_ALLIES = 5;
+export const SHIELD_MS = 30000;
+export const MAX_SHIELD_PRESSES = 5;
+/** Farther out than a contact hit, so a shielded tank cannot be touched. */
+export const SHIELD_RADIUS = 52;
 
 /**
  * Fixed follow camera, in tile units. It sits south of the hero and looks north,
@@ -149,8 +153,58 @@ export function advanceSpawner(timer, dt, monsters, player, points, rng = Math.r
   };
 }
 
-/** A monster that touches the tank pops and costs CONTACT_DAMAGE health. */
-export function applyContact(player, monsters, hp) {
+/** True until this run has used all shield presses. Time running out does not refund one. */
+export function canPressShield(used) {
+  return Number(used) < MAX_SHIELD_PRESSES;
+}
+
+export function shieldUntilFrom(now, duration = SHIELD_MS) {
+  return now + duration;
+}
+
+export function shieldsActive(until, now) {
+  return Number(until) > Number(now);
+}
+
+/**
+ * Keep every monster outside the shield perimeter of every protected tank.
+ * They stay alive and deal no damage while they are held back.
+ */
+export function blockShieldedTanks(monsters, tanks, radius = SHIELD_RADIUS) {
+  const held = [];
+  const live = tanks.filter(Boolean);
+  for (const monster of monsters) {
+    if (!monster?.alive || live.length === 0) continue;
+    const startedInside = live.some(
+      (tank) => Math.hypot(monster.x - tank.x, monster.y - tank.y) < radius,
+    );
+    if (!startedInside) continue;
+    for (let pass = 0; pass < 6; pass++) {
+      let clear = true;
+      for (const tank of live) {
+        let dx = monster.x - tank.x;
+        let dy = monster.y - tank.y;
+        let dist = Math.hypot(dx, dy);
+        if (dist >= radius) continue;
+        clear = false;
+        if (dist < 0.001) {
+          dx = 1;
+          dy = 0;
+          dist = 1;
+        }
+        monster.x = tank.x + (dx / dist) * radius;
+        monster.y = tank.y + (dy / dist) * radius;
+      }
+      if (clear) break;
+    }
+    held.push(monster);
+  }
+  return held;
+}
+
+/** A monster that touches the tank pops and costs CONTACT_DAMAGE health. Shields stop the touch entirely. */
+export function applyContact(player, monsters, hp, shielded = false) {
+  if (shielded) return { hp, popped: [], dead: false };
   const popped = [];
   for (const monster of monsters) {
     if (!monster.alive) continue;

@@ -15,8 +15,15 @@ import {
   advanceSpawner,
   applyContact,
   MAX_ALLIES,
+  MAX_SHIELD_PRESSES,
+  SHIELD_MS,
+  SHIELD_RADIUS,
   allySpawnNear,
+  blockShieldedTanks,
   canAddAlly,
+  canPressShield,
+  shieldUntilFrom,
+  shieldsActive,
   pickSpawnPoint,
   stepAlly,
   reachedGoal,
@@ -193,6 +200,37 @@ test('the rainbow ally shoots a monster it can see and pops when bumped', () => 
       assert.ok(Math.hypot(squad[i].x - squad[j].x, squad[i].y - squad[j].y) >= 96);
     }
   }
+});
+
+test('shields block every tank for 30 seconds and presses are not refunded', () => {
+  assert.equal(canPressShield(0), true);
+  assert.equal(canPressShield(MAX_SHIELD_PRESSES - 1), true);
+  assert.equal(canPressShield(MAX_SHIELD_PRESSES), false);
+  const started = 1000;
+  const until = shieldUntilFrom(started);
+  assert.equal(until - started, SHIELD_MS);
+  assert.equal(SHIELD_MS, 30000);
+  assert.equal(shieldsActive(until, started + SHIELD_MS - 1), true);
+  assert.equal(shieldsActive(until, started + SHIELD_MS), false);
+  assert.ok(shieldUntilFrom(started + 5000) > until);
+
+  const tank = { x: 200, y: 200 };
+  const ally = { x: 340, y: 200 };
+  const monster = { x: 200, y: 200, alive: true };
+  const held = blockShieldedTanks([monster], [tank, ally]);
+  assert.equal(held.length, 1);
+  assert.equal(monster.alive, true);
+  assert.ok(Math.hypot(monster.x - tank.x, monster.y - tank.y) >= SHIELD_RADIUS - 0.01);
+  assert.ok(Math.hypot(monster.x - ally.x, monster.y - ally.y) >= SHIELD_RADIUS - 0.01);
+  const safe = applyContact(tank, [monster], TANK_HP, true);
+  assert.equal(safe.hp, TANK_HP);
+  assert.deepEqual(safe.popped, []);
+  assert.equal(monster.alive, true);
+
+  const bumper = { x: 210, y: 200, alive: true };
+  const after = applyContact(tank, [bumper], TANK_HP, shieldsActive(until, until));
+  assert.equal(after.hp, TANK_HP - CONTACT_DAMAGE);
+  assert.equal(bumper.alive, false);
 });
 
 test('the menu keeps Level 1 and Level 2 and adds Level 3 (3D)', () => {

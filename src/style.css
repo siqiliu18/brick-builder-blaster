@@ -473,11 +473,31 @@ h2 { margin: 0 0 4px; font-size: 16px; }
   pointer-events: none;
 }
 
-.level3-ally-btn:disabled {
+.level3-ally-btn:disabled,
+.level3-shield-btn:disabled {
   filter: grayscale(1);
   opacity: 0.45;
   cursor: default;
 }
+
+.level3-shield-btn {
+  position: absolute;
+  top: 12px;
+  left: calc(50% - 108px);
+  transform: translateX(-50%);
+  z-index: 6;
+  width: 84px;
+  height: 84px;
+  padding: 8px;
+  border-radius: 18px;
+  border: 3px solid #081018;
+  background: #d7f4ff;
+  box-shadow: 0 4px 0 #081018;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.level3-shield-btn svg { width: 100%; height: 100%; display: block; pointer-events: none; }
 
 .level3-win h2 {
   margin: 0;

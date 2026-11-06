@@ -4,10 +4,16 @@ import {
   ALLY_HP,
   FIXED_CAMERA,
   MAX_ALLIES,
+  MAX_SHIELD_PRESSES,
+  SHIELD_MS,
   allySpawnNear,
   angleTowardGround,
   applyContact,
+  blockShieldedTanks,
   canAddAlly,
+  canPressShield,
+  shieldUntilFrom,
+  shieldsActive,
   stepAlly,
   stickAngle,
 } from './level3-sim.js';
@@ -19,6 +25,7 @@ import {
   makeCanvasTexture,
   makeFinish,
   makeMonster,
+  makeShieldRing,
   makeTank,
   nameSprite,
   webglAvailable,
@@ -96,6 +103,8 @@ function runLevel2(root, { onExit, onHud, onWin, rows }) {
   let spawnTimer = 0;
   let spawnIndex = 0;
   let alliesCalled = 0;
+  let shieldPresses = 0;
+  let shieldUntil = 0;
   const allies = [];
   const disposables = [];
 
@@ -135,6 +144,8 @@ function runLevel2(root, { onExit, onHud, onWin, rows }) {
   }
 
   const { hero, hull, turret } = makeTank(disposables);
+  const playerShields = makeShieldRing(disposables);
+  hull.add(playerShields);
   const shadowTex = makeCanvasTexture((ctx, size) => {
     const fade = ctx.createRadialGradient(size / 2, size / 2, size * 0.08, size / 2, size / 2, size * 0.48);
     fade.addColorStop(0, 'rgba(30, 40, 50, 0.4)');
@@ -156,6 +167,8 @@ function runLevel2(root, { onExit, onHud, onWin, rows }) {
     const tank = makeTank(disposables, { rainbow: true, rider: false });
     tank.hero.visible = false;
     tank.used = false;
+    tank.shields = makeShieldRing(disposables);
+    tank.hull.add(tank.shields);
     scene.add(tank.hero);
     allyTanks.push(tank);
   }
@@ -247,6 +260,36 @@ function runLevel2(root, { onExit, onHud, onWin, rows }) {
   allyButton.addEventListener('pointerup', onAllyPointerUp, { passive: false });
   (root.parentElement || root).append(allyButton);
   paintAllyCount();
+  const shieldButton = document.createElement('button');
+  shieldButton.type = 'button';
+  shieldButton.className = 'level3-shield-btn';
+  shieldButton.innerHTML = `<svg viewBox="0 0 64 64" aria-hidden="true">
+    <path d="M32 6 L54 16 V32 C54 46 44 56 32 60 C20 56 10 46 10 32 V16 Z" fill="#7ee7ff" stroke="#083044" stroke-width="4"/>
+    <path d="M32 16 L44 21 V32 C44 40 38 46 32 49 C26 46 20 40 20 32 V21 Z" fill="#e9fbff"/>
+  </svg><span class="level3-ally-count">${MAX_SHIELD_PRESSES}</span>`;
+  const shieldCount = shieldButton.querySelector('.level3-ally-count');
+  function paintShieldCount() {
+    const left = Math.max(0, MAX_SHIELD_PRESSES - shieldPresses);
+    shieldCount.textContent = String(left);
+    shieldButton.disabled = left === 0;
+    shieldButton.setAttribute('aria-label', left ? `Raise shields, ${left} left` : 'No shields left');
+  }
+  function onShieldDown(event) {
+    if (shieldButton.disabled) return;
+    event.preventDefault();
+    event.stopPropagation();
+    shieldButton.setPointerCapture?.(event.pointerId);
+  }
+  function onShieldUp(event) {
+    event.preventDefault();
+    event.stopPropagation();
+    if (event.button != null && event.button !== 0) return;
+    raiseShields();
+  }
+  shieldButton.addEventListener('pointerdown', onShieldDown, { passive: false });
+  shieldButton.addEventListener('pointerup', onShieldUp, { passive: false });
+  (root.parentElement || root).append(shieldButton);
+  paintShieldCount();
 
   const pointer = { inside: false, down: false, onBoard: false, x: 0, y: 0 };
   const canvas = renderer.domElement;
@@ -327,6 +370,32 @@ function runLevel2(root, { onExit, onHud, onWin, rows }) {
     hull.rotation.y = -moveFacing;
     turret.rotation.y = -aimAngle;
     hero.visible = respawn <= 0;
+  }
+
+  function coveredTanks() {
+    const tanks = [{ x: player.x, y: player.y }];
+    for (const ally of allies) if (ally.alive) tanks.push(ally);
+    return tanks;
+  }
+
+  function shieldsUp(now) {
+    return shieldsActive(shieldUntil, now);
+  }
+
+  function showShields(on) {
+    playerShields.visible = on;
+    for (const tank of allyTanks) tank.shields.visible = on;
+  }
+
+  function raiseShields() {
+    if (!canPressShield(shieldPresses)) {
+      shieldButton.disabled = true;
+      return;
+    }
+    shieldPresses += 1;
+    shieldUntil = shieldUntilFrom(performance.now(), SHIELD_MS);
+    paintShieldCount();
+    showShields(true);
   }
 
   function summonAlly() {
@@ -482,8 +551,10 @@ function runLevel2(root, { onExit, onHud, onWin, rows }) {
         }
       }
       separateEnemies(monsters, ENEMY_HALF, world.grid);
+      const guarded = shieldsUp(now);
+      if (guarded) blockShieldedTanks(monsters, coveredTanks());
 
-      const touch = mazeTouch(player, monsters, armor, health, invuln);
+      const touch = mazeTouch(player, monsters, armor, health, invuln, guarded);
       if (touch) {
         armor = touch.armor;
         health = touch.health;
@@ -504,7 +575,8 @@ function runLevel2(root, { onExit, onHud, onWin, rows }) {
         if (!ally.alive) continue;
         const action = stepAlly(ally, monsters, dt, world.grid);
         if (action.fire) spawnBullet(action.aim, ally);
-        const allyHit = applyContact(ally, monsters, ally.hp);
+        if (shieldsUp(now)) blockShieldedTanks(monsters, coveredTanks());
+        const allyHit = applyContact(ally, monsters, ally.hp, shieldsUp(now));
         if (allyHit.popped.length) {
           ally.hp = allyHit.hp;
           for (const monster of allyHit.popped) explode(monster);
@@ -580,6 +652,7 @@ function runLevel2(root, { onExit, onHud, onWin, rows }) {
       }
     }
 
+    if (shieldsUp(now)) blockShieldedTanks(monsters, coveredTanks());
     for (let i = monsters.length - 1; i >= 0; i--) {
       const monster = monsters[i];
       if (!monster.alive) {
@@ -592,6 +665,7 @@ function runLevel2(root, { onExit, onHud, onWin, rows }) {
       monster.mesh.position.set(monster.x / TILE, 0, monster.y / TILE);
       monster.mesh.rotation.y = -Math.atan2(player.y - monster.y, player.x - monster.x);
     }
+    showShields(shieldsUp(now));
     syncAllies();
     placeHero();
     const focusX = player.x / TILE;
@@ -623,6 +697,7 @@ function runLevel2(root, { onExit, onHud, onWin, rows }) {
       canvas.removeEventListener('pointerleave', onPointerLeave);
       syncMoveSound(0, false, false);
       allyButton.remove();
+      shieldButton.remove();
       for (const item of disposables) item.dispose?.();
       renderer.dispose();
       root.replaceChildren();

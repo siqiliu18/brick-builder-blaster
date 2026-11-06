@@ -12,7 +12,7 @@ import {
   mazeTouch,
   stepMazeBullet,
 } from '../src/level2-3d-sim.js';
-import { canAddAlly, MAX_ALLIES } from '../src/level3-sim.js';
+import { MAX_ALLIES, SHIELD_RADIUS, blockShieldedTanks, canAddAlly } from '../src/level3-sim.js';
 
 test('Level 2 in 3D keeps the maze, three brutes, and the flag', () => {
   const rows = level2();
@@ -103,4 +103,19 @@ test('Level 2 keeps spawning runners, bruisers, and brutes away from the tank', 
   while (canAddAlly(called)) called += 1;
   assert.equal(called, MAX_ALLIES);
   assert.equal(canAddAlly(called), false);
+});
+
+test('Level 2 shields stop armor hits and hold monsters off every tank', () => {
+  const player = { x: 200, y: 200 };
+  const ally = { x: 200, y: 330 };
+  const monster = { x: 218, y: 200, alive: true, kind: 'brute' };
+  assert.equal(mazeTouch(player, [monster], TANK_ARMOR, 3, 0, true), null);
+  assert.equal(monster.alive, true);
+  blockShieldedTanks([monster], [player, ally]);
+  assert.equal(monster.alive, true);
+  assert.ok(Math.hypot(monster.x - player.x, monster.y - player.y) >= SHIELD_RADIUS - 0.01);
+  assert.ok(Math.hypot(monster.x - ally.x, monster.y - ally.y) >= SHIELD_RADIUS - 0.01);
+  const open = mazeTouch(player, [{ x: 210, y: 200, alive: true, kind: 'runner' }], TANK_ARMOR, 3, 0, false);
+  assert.equal(open.soaked, true);
+  assert.equal(open.armor, TANK_ARMOR - 1);
 });
